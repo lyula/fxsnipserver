@@ -54,34 +54,34 @@ router.post("/follow/:id", requireAuth, async (req, res) => {
   const userId = req.user.id;
   const targetId = req.params.id;
 
-  // Prevent following yourself
   if (userId === targetId) {
     return res.status(400).json({ message: "You cannot follow yourself." });
   }
 
-  const userFollow = await Follow.findOne({ user: userId });
-  const targetFollow = await Follow.findOne({ user: targetId });
-  if (!userFollow || !targetFollow) return res.status(404).json({ message: "User not found" });
+  const user = await User.findById(userId);
+  const target = await User.findById(targetId);
 
-  // Prevent duplicate follows
-  if (userFollow.following.includes(targetId)) {
-    return res.status(400).json({ message: "Already following" });
+  if (!user || !target) {
+    return res.status(404).json({ message: "User not found." });
   }
 
-  userFollow.following.push(targetId);
-  userFollow.followingHashed.push(hashId(targetId));
-  userFollow.followingCount += 1;
+  const hashedUserId = hashId(userId);
+  const hashedTargetId = hashId(targetId);
 
-  targetFollow.followers.push(userId);
-  targetFollow.followersHashed.push(hashId(userId));
-  targetFollow.followersCount += 1;
+  // Prevent duplicate follows
+  if (target.followersHashed.includes(hashedUserId)) {
+    return res.status(400).json({ message: "Already following." });
+  }
 
-  await userFollow.save();
-  await targetFollow.save();
-
-  // Update User collection
-  await User.findByIdAndUpdate(userId, { $inc: { following: 1 } });
-  await User.findByIdAndUpdate(targetId, { $inc: { followers: 1 } });
+  // Add hashed IDs to arrays and increment counts
+  await User.findByIdAndUpdate(targetId, {
+    $inc: { followers: 1 },
+    $push: { followersHashed: hashedUserId }
+  });
+  await User.findByIdAndUpdate(userId, {
+    $inc: { following: 1 },
+    $push: { followingHashed: hashedTargetId }
+  });
 
   res.json({ message: "Followed", userId: targetId });
 });
@@ -95,41 +95,30 @@ router.post("/unfollow/:id", requireAuth, async (req, res) => {
     return res.status(400).json({ message: "You cannot unfollow yourself." });
   }
 
-  const userFollow = await Follow.findOne({ user: userId });
-  const targetFollow = await Follow.findOne({ user: targetId });
-  if (!userFollow || !targetFollow) return res.status(404).json({ message: "User not found" });
+  const user = await User.findById(userId);
+  const target = await User.findById(targetId);
+
+  if (!user || !target) {
+    return res.status(404).json({ message: "User not found." });
+  }
+
+  const hashedUserId = hashId(userId);
+  const hashedTargetId = hashId(targetId);
 
   // Only unfollow if currently following
-  const followingIndex = userFollow.following.findIndex(id => id.equals(targetId));
-  const followingHash = hashId(targetId);
-  const followingHashedIndex = userFollow.followingHashed.indexOf(followingHash);
-
-  if (followingIndex !== -1) {
-    userFollow.following.splice(followingIndex, 1);
-    userFollow.followingCount = Math.max(0, userFollow.followingCount - 1);
-  }
-  if (followingHashedIndex !== -1) {
-    userFollow.followingHashed.splice(followingHashedIndex, 1);
+  if (!target.followersHashed.includes(hashedUserId)) {
+    return res.status(400).json({ message: "You are not following this user." });
   }
 
-  const followerIndex = targetFollow.followers.findIndex(id => id.equals(userId));
-  const followerHash = hashId(userId);
-  const followersHashedIndex = targetFollow.followersHashed.indexOf(followerHash);
-
-  if (followerIndex !== -1) {
-    targetFollow.followers.splice(followerIndex, 1);
-    targetFollow.followersCount = Math.max(0, targetFollow.followersCount - 1);
-  }
-  if (followersHashedIndex !== -1) {
-    targetFollow.followersHashed.splice(followersHashedIndex, 1);
-  }
-
-  await userFollow.save();
-  await targetFollow.save();
-
-  // Update User collection
-  await User.findByIdAndUpdate(userId, { $inc: { following: -1 } });
-  await User.findByIdAndUpdate(targetId, { $inc: { followers: -1 } });
+  // Remove hashed IDs from arrays and decrement counts
+  await User.findByIdAndUpdate(targetId, {
+    $inc: { followers: -1 },
+    $pull: { followersHashed: hashedUserId }
+  });
+  await User.findByIdAndUpdate(userId, {
+    $inc: { following: -1 },
+    $pull: { followingHashed: hashedTargetId }
+  });
 
   res.json({ message: "Unfollowed", userId: targetId });
 });
@@ -155,21 +144,13 @@ router.get("/followers/:username", async (req, res) => {
   const user = await User.findOne({ username: req.params.username });
   if (!user) return res.status(404).json({ message: "User not found" });
 
-  const follow = await Follow.findOne({ user: user._id }).populate({
-    path: "followers",
-    select: "username country countryFlag _id"
-  });
+  const hashedId = hashId(user._id.toString());
 
-  if (!follow) return res.json({ followers: [] });
+  // Find all users whose followingHashed contains this user's hashed ID
+  const followers = await User.find({ followingHashed: hashedId })
+    .select("username country countryFlag _id");
 
-  res.json({
-    followers: follow.followers.map(u => ({
-      _id: u._id,
-      username: u.username,
-      country: u.country,
-      countryFlag: u.countryFlag
-    }))
-  });
+  res.json({ followers });
 });
 
 // Search a user's followers by username (case-insensitive, partial match)
@@ -177,16 +158,13 @@ router.get("/followers/:username/search", requireAuth, async (req, res) => {
   const user = await User.findOne({ username: req.params.username });
   if (!user) return res.status(404).json({ message: "User not found" });
 
+  const hashedId = hashId(user._id.toString());
   const q = req.query.q || "";
   if (!q) return res.json({ followers: [] });
 
-  // Find the Follow document for this user
-  const follow = await Follow.findOne({ user: user._id });
-  if (!follow || !follow.followers.length) return res.json({ followers: [] });
-
-  // Search for followers whose username matches q
+  // Find users who follow this user and match the search query
   const followers = await User.find({
-    _id: { $in: follow.followers },
+    followingHashed: hashedId,
     username: { $regex: q, $options: "i" }
   }).select("username country countryFlag _id");
 
@@ -198,27 +176,20 @@ router.get("/following/:username", requireAuth, async (req, res) => {
   const user = await User.findOne({ username: req.params.username });
   if (!user) return res.status(404).json({ message: "User not found" });
 
+  // Find all users whose followersHashed contains any of this user's followingHashed
+  const followingHashed = user.followingHashed || [];
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 80;
   const skip = (page - 1) * limit;
 
-  const follow = await Follow.findOne({ user: user._id })
-    .populate({
-      path: "following",
-      select: "username country countryFlag _id",
-      options: { skip, limit }
-    });
+  const following = await User.find({
+    followersHashed: { $in: followingHashed }
+  })
+    .skip(skip)
+    .limit(limit)
+    .select("username country countryFlag _id");
 
-  if (!follow) return res.json({ following: [] });
-
-  res.json({
-    following: follow.following.map(u => ({
-      _id: u._id,
-      username: u.username,
-      country: u.country,
-      countryFlag: u.countryFlag
-    }))
-  });
+  res.json({ following });
 });
 
 // Search a user's following by username (case-insensitive, partial match, max 80)
@@ -226,14 +197,12 @@ router.get("/following/:username/search", requireAuth, async (req, res) => {
   const user = await User.findOne({ username: req.params.username });
   if (!user) return res.status(404).json({ message: "User not found" });
 
+  const followingHashed = user.followingHashed || [];
   const q = req.query.q || "";
   if (!q) return res.json({ following: [] });
 
-  const follow = await Follow.findOne({ user: user._id });
-  if (!follow || !follow.following.length) return res.json({ following: [] });
-
   const following = await User.find({
-    _id: { $in: follow.following },
+    followersHashed: { $in: followingHashed },
     username: { $regex: q, $options: "i" }
   })
     .limit(80)
