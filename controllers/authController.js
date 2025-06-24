@@ -12,14 +12,6 @@ exports.register = async (req, res, next) => {
     if (exists) return res.status(409).json({ message: "Email already registered." });
     const hash = await bcrypt.hash(password, 10);
     const user = await User.create({ username, email, password: hash, country, countryCode, countryFlag });
-    // Create follow management entry
-    await Follow.create({
-      user: user._id,
-      followers: [],
-      following: [],
-      followersCount: 0,
-      followingCount: 0,
-    });
     res.status(201).json({ message: "User registered successfully" });
   } catch (err) {
     next(err);
