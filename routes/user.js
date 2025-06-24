@@ -8,13 +8,14 @@ const { requireAuth } = require("../middleware/auth");
 router.get("/profile", requireAuth, async (req, res) => {
   const user = await User.findById(req.user.id);
   if (!user) return res.status(404).json({ message: "User not found" });
-  const follow = await Follow.findOne({ user: user._id });
   res.json({
     username: user.username,
     email: user.email,
     joined: user.createdAt,
-    followers: follow ? follow.followersCount : 0,
-    following: follow ? follow.followingCount : 0,
+    followers: user.followers || 0,
+    following: user.following || 0,
+    country: user.country,
+    countryFlag: user.countryFlag,
   });
 });
 
@@ -44,7 +45,7 @@ router.get("/search", requireAuth, async (req, res) => {
   res.json({ users });
 });
 
-// Follow a user (prevents duplicates and self-follow)
+// Follow a user
 router.post("/follow/:id", requireAuth, async (req, res) => {
   const userId = req.user.id;
   const targetId = req.params.id;
@@ -71,7 +72,50 @@ router.post("/follow/:id", requireAuth, async (req, res) => {
   await userFollow.save();
   await targetFollow.save();
 
+  // Update User collection
+  await User.findByIdAndUpdate(userId, { $inc: { following: 1 } });
+  await User.findByIdAndUpdate(targetId, { $inc: { followers: 1 } });
+
   res.json({ message: "Followed", userId: targetId });
+});
+
+// Unfollow a user
+router.post("/unfollow/:id", requireAuth, async (req, res) => {
+  const userId = req.user.id;
+  const targetId = req.params.id;
+
+  if (userId === targetId) {
+    return res.status(400).json({ message: "You cannot unfollow yourself." });
+  }
+
+  const userFollow = await Follow.findOne({ user: userId });
+  const targetFollow = await Follow.findOne({ user: targetId });
+  if (!userFollow || !targetFollow) return res.status(404).json({ message: "User not found" });
+
+  // Only unfollow if currently following
+  const followingIndex = userFollow.following.indexOf(targetId);
+  const followerIndex = targetFollow.followers.indexOf(userId);
+
+  if (followingIndex === -1) {
+    return res.status(400).json({ message: "Not following" });
+  }
+
+  userFollow.following.splice(followingIndex, 1);
+  userFollow.followingCount = Math.max(0, userFollow.followingCount - 1);
+
+  if (followerIndex !== -1) {
+    targetFollow.followers.splice(followerIndex, 1);
+    targetFollow.followersCount = Math.max(0, targetFollow.followersCount - 1);
+  }
+
+  await userFollow.save();
+  await targetFollow.save();
+
+  // Update User collection
+  await User.findByIdAndUpdate(userId, { $inc: { following: -1 } });
+  await User.findByIdAndUpdate(targetId, { $inc: { followers: -1 } });
+
+  res.json({ message: "Unfollowed", userId: targetId });
 });
 
 // Get public profile by username (with follower/following counts)
