@@ -172,18 +172,12 @@ router.get("/following/:username", requireAuth, async (req, res) => {
   const user = await User.findOne({ username: req.params.username });
   if (!user) return res.status(404).json({ message: "User not found" });
 
-  // Find all users whose followersHashed contains any of this user's followingHashed
   const followingHashed = user.followingHashed || [];
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 80;
-  const skip = (page - 1) * limit;
+  if (!followingHashed.length) return res.json({ following: [] });
 
   const following = await User.find({
     followersHashed: { $in: followingHashed }
-  })
-    .skip(skip)
-    .limit(limit)
-    .select("username country countryFlag _id");
+  }).select("username country countryFlag _id");
 
   res.json({ following });
 });
