@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
-const Follow = require("../models/Follow");
 const { requireAuth } = require("../middleware/auth");
 const { hashId } = require("../utils/hash");
 
@@ -123,7 +122,7 @@ router.post("/unfollow/:id", requireAuth, async (req, res) => {
   res.json({ message: "Unfollowed", userId: targetId });
 });
 
-// Get public profile by username (with follower/following counts)
+// Get public profile by username
 router.get("/public/:username", async (req, res) => {
   const user = await require("../models/User").findOne({ username: req.params.username });
   if (!user) return res.status(404).json({ message: "User not found" });
@@ -139,7 +138,7 @@ router.get("/public/:username", async (req, res) => {
   });
 });
 
-// Get followers list for a user by username, public access
+// Get followers list for a user by username
 router.get("/followers/:username", async (req, res) => {
   const user = await User.findOne({ username: req.params.username });
   if (!user) return res.status(404).json({ message: "User not found" });
@@ -153,7 +152,7 @@ router.get("/followers/:username", async (req, res) => {
   res.json({ followers });
 });
 
-// Search a user's followers by username (case-insensitive, partial match)
+// Search a user's followers by username
 router.get("/followers/:username/search", requireAuth, async (req, res) => {
   const user = await User.findOne({ username: req.params.username });
   if (!user) return res.status(404).json({ message: "User not found" });
@@ -171,7 +170,7 @@ router.get("/followers/:username/search", requireAuth, async (req, res) => {
   res.json({ followers });
 });
 
-// Get following list for a user by username, paginated
+// Get following list for a user by username
 router.get("/following/:username", requireAuth, async (req, res) => {
   const user = await User.findOne({ username: req.params.username });
   if (!user) return res.status(404).json({ message: "User not found" });
@@ -192,7 +191,7 @@ router.get("/following/:username", requireAuth, async (req, res) => {
   res.json({ following });
 });
 
-// Search a user's following by username (case-insensitive, partial match, max 80)
+// Search a user's following by username
 router.get("/following/:username/search", requireAuth, async (req, res) => {
   const user = await User.findOne({ username: req.params.username });
   if (!user) return res.status(404).json({ message: "User not found" });

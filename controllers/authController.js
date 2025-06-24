@@ -1,5 +1,4 @@
 const User = require("../models/User");
-const Follow = require("../models/Follow");
 const bcrypt = require("bcryptjs");
 const { generateToken } = require("../utils/jwt");
 
