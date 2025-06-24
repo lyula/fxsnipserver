@@ -136,16 +136,20 @@ router.post("/unfollow/:id", requireAuth, async (req, res) => {
 
 // Get public profile by username (with follower/following counts)
 router.get("/public/:username", async (req, res) => {
-  const user = await User.findOne({ username: req.params.username });
+  const user = await require("../models/User").findOne({ username: req.params.username });
   if (!user) return res.status(404).json({ message: "User not found" });
+
+  const Follow = require("../models/Follow");
   const follow = await Follow.findOne({ user: user._id });
+
   res.json({
     username: user.username,
-    followers: follow ? follow.followersCount : 0,
-    following: follow ? follow.followingCount : 0,
-    joined: user.createdAt,
     country: user.country,
     countryFlag: user.countryFlag,
+    joined: user.createdAt,
+    followers: follow ? follow.followersCount : 0,
+    following: follow ? follow.followingCount : 0,
+    // add other public fields if needed
   });
 });
 
