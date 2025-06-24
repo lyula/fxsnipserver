@@ -150,21 +150,15 @@ router.get("/public/:username", async (req, res) => {
   });
 });
 
-// Get followers list for a user by username, paginated
-router.get("/followers/:username", requireAuth, async (req, res) => {
+// Get followers list for a user by username, public access
+router.get("/followers/:username", async (req, res) => {
   const user = await User.findOne({ username: req.params.username });
   if (!user) return res.status(404).json({ message: "User not found" });
 
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 80;
-  const skip = (page - 1) * limit;
-
-  const follow = await Follow.findOne({ user: user._id })
-    .populate({
-      path: "followers",
-      select: "username country countryFlag _id",
-      options: { skip, limit }
-    });
+  const follow = await Follow.findOne({ user: user._id }).populate({
+    path: "followers",
+    select: "username country countryFlag _id"
+  });
 
   if (!follow) return res.json({ followers: [] });
 
