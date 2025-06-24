@@ -1,20 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
-const jwt = require("jsonwebtoken");
-
-// Auth middleware
-function requireAuth(req, res, next) {
-  const auth = req.headers.authorization;
-  if (!auth) return res.status(401).json({ message: "No token" });
-  try {
-    const token = auth.split(" ")[1];
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
-    next();
-  } catch {
-    res.status(401).json({ message: "Invalid token" });
-  }
-}
+const Follow = require("../models/Follow");
+const { requireAuth } = require("../middleware/auth");
 
 // Get profile
 router.get("/profile", requireAuth, async (req, res) => {
@@ -51,42 +39,52 @@ router.get("/search", requireAuth, async (req, res) => {
     ]
   })
     .limit(10)
-    .select("username email country countryFlag followers following _id");
+    .select("username country countryFlag _id"); // Only return username, country, countryFlag, _id
   res.json({ users });
 });
 
-// Follow a user
+// Follow a user (prevents duplicates and self-follow)
 router.post("/follow/:id", requireAuth, async (req, res) => {
   const userId = req.user.id;
   const targetId = req.params.id;
-  if (userId === targetId) return res.status(400).json({ message: "Cannot follow yourself" });
 
-  // Add logic to prevent duplicate follows (optional: use a Follows collection for scalability)
-  const user = await User.findById(userId);
-  const target = await User.findById(targetId);
-  if (!user || !target) return res.status(404).json({ message: "User not found" });
+  // Prevent following yourself
+  if (userId === targetId) {
+    return res.status(400).json({ message: "You cannot follow yourself." });
+  }
 
-  // For demo: just increment counters (replace with real follow logic in production)
-  user.following = (user.following || 0) + 1;
-  target.followers = (target.followers || 0) + 1;
-  await user.save();
-  await target.save();
+  const userFollow = await Follow.findOne({ user: userId });
+  const targetFollow = await Follow.findOne({ user: targetId });
+  if (!userFollow || !targetFollow) return res.status(404).json({ message: "User not found" });
+
+  // Prevent duplicate follows
+  if (userFollow.following.includes(targetId)) {
+    return res.status(400).json({ message: "Already following" });
+  }
+
+  userFollow.following.push(targetId);
+  userFollow.followingCount += 1;
+  targetFollow.followers.push(userId);
+  targetFollow.followersCount += 1;
+
+  await userFollow.save();
+  await targetFollow.save();
 
   res.json({ message: "Followed", userId: targetId });
 });
 
-// Get public profile by username
+// Get public profile by username (with follower/following counts)
 router.get("/public/:username", async (req, res) => {
   const user = await User.findOne({ username: req.params.username });
   if (!user) return res.status(404).json({ message: "User not found" });
+  const follow = await Follow.findOne({ user: user._id });
   res.json({
     username: user.username,
-    followers: user.followers || 0,
-    following: user.following || 0,
+    followers: follow ? follow.followersCount : 0,
+    following: follow ? follow.followingCount : 0,
     joined: user.createdAt,
     country: user.country,
     countryFlag: user.countryFlag,
-    // Add avatar if you have it in your schema
   });
 });
 
