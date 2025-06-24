@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema({
   following: { type: Number, default: 0 },
   followersHashed: [{ type: String }],   // Array of hashed follower IDs
   followingHashed: [{ type: String }],   // Array of hashed following IDs
+  followingRaw: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // <-- Add this
   country: { type: String },
   countryCode: { type: String },
   countryFlag: { type: String },

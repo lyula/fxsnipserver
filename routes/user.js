@@ -76,7 +76,7 @@ router.post("/follow/:id", requireAuth, async (req, res) => {
   });
   await User.findByIdAndUpdate(userId, {
     $inc: { following: 1 },
-    $push: { followingHashed: hashedTargetId }
+    $push: { followingHashed: hashedTargetId, followingRaw: target._id }
   });
 
   res.json({ message: "Followed", userId: targetId });
@@ -101,19 +101,17 @@ router.post("/unfollow/:id", requireAuth, async (req, res) => {
   const hashedUserId = hashId(userId);
   const hashedTargetId = hashId(targetId);
 
-  // Only unfollow if currently following
   if (!target.followersHashed.includes(hashedUserId)) {
     return res.status(400).json({ message: "You are not following this user." });
   }
 
-  // Remove hashed IDs from arrays and decrement counts
   await User.findByIdAndUpdate(targetId, {
     $inc: { followers: -1 },
     $pull: { followersHashed: hashedUserId }
   });
   await User.findByIdAndUpdate(userId, {
     $inc: { following: -1 },
-    $pull: { followingHashed: hashedTargetId }
+    $pull: { followingHashed: hashedTargetId, followingRaw: target._id }
   });
 
   res.json({ message: "Unfollowed", userId: targetId });
@@ -172,11 +170,11 @@ router.get("/following/:username", requireAuth, async (req, res) => {
   const user = await User.findOne({ username: req.params.username });
   if (!user) return res.status(404).json({ message: "User not found" });
 
-  const followingHashed = user.followingHashed || [];
-  if (!followingHashed.length) return res.json({ following: [] });
+  const followingRaw = user.followingRaw || [];
+  if (!followingRaw.length) return res.json({ following: [] });
 
   const following = await User.find({
-    followersHashed: { $in: followingHashed }
+    _id: { $in: followingRaw }
   }).select("username country countryFlag _id");
 
   res.json({ following });
