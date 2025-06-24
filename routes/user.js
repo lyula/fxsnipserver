@@ -66,12 +66,10 @@ router.post("/follow/:id", requireAuth, async (req, res) => {
   const hashedUserId = hashId(userId);
   const hashedTargetId = hashId(targetId);
 
-  // Prevent duplicate follows
   if (target.followersHashed.includes(hashedUserId)) {
     return res.status(400).json({ message: "Already following." });
   }
 
-  // Add hashed IDs to arrays and increment counts
   await User.findByIdAndUpdate(targetId, {
     $inc: { followers: 1 },
     $push: { followersHashed: hashedUserId }
@@ -123,17 +121,17 @@ router.post("/unfollow/:id", requireAuth, async (req, res) => {
 
 // Get public profile by username
 router.get("/public/:username", async (req, res) => {
-  const user = await require("../models/User").findOne({ username: req.params.username });
+  const user = await User.findOne({ username: req.params.username });
   if (!user) return res.status(404).json({ message: "User not found" });
 
   res.json({
+    _id: user._id, // <-- Make sure this is present!
     username: user.username,
     country: user.country,
     countryFlag: user.countryFlag,
     joined: user.createdAt,
     followers: user.followers || 0,
     following: user.following || 0,
-    // add other public fields if needed
   });
 });
 
