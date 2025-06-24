@@ -8,12 +8,13 @@ const { requireAuth } = require("../middleware/auth");
 router.get("/profile", requireAuth, async (req, res) => {
   const user = await User.findById(req.user.id);
   if (!user) return res.status(404).json({ message: "User not found" });
+  const follow = await Follow.findOne({ user: user._id });
   res.json({
     username: user.username,
     email: user.email,
     joined: user.createdAt,
-    followers: user.followers || 0,
-    following: user.following || 0,
+    followers: follow ? follow.followersCount : 0,
+    following: follow ? follow.followingCount : 0,
   });
 });
 
