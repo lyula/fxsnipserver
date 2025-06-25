@@ -18,6 +18,7 @@ router.get("/profile", requireAuth, async (req, res) => {
     followingHashed: user.followingHashed || [],
     country: user.country,
     countryFlag: user.countryFlag,
+    verified: user.verified || false, // <-- Add this
   });
 });
 
@@ -130,6 +131,7 @@ router.get("/public/:username", async (req, res) => {
     joined: user.createdAt,
     followers: user.followers || 0,
     following: user.following || 0,
+    verified: user.verified || false, // <-- Add this
   });
 });
 
