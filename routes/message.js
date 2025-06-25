@@ -22,9 +22,10 @@ router.get("/", requireAuth, async (req, res) => {
     // Find all users you've messaged or who have messaged you
     const sent = await Message.find({ from: myId }).distinct("to");
     const received = await Message.find({ to: myId }).distinct("from");
-    const userIds = Array.from(new Set([...sent, ...received])).filter(
-      id => id.toString() !== myId.toString()
-    );
+    // Convert all IDs to strings for proper deduplication
+    const userIds = Array.from(
+      new Set([...sent, ...received].map(id => id.toString()))
+    ).filter(id => id !== myId.toString());
 
     // For each user, get user info, last message, and unread count
     const results = await Promise.all(userIds.map(async (userId) => {
