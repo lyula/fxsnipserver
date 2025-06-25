@@ -17,42 +17,44 @@ router.post("/", requireAuth, async (req, res) => {
 // Get all conversations for the logged-in user, with unread counts
 router.get("/", requireAuth, async (req, res) => {
   try {
-    const myId = new mongoose.Types.ObjectId(req.user.id || req.user._id);
-    console.log("Fetching conversations for user:", myId);
+    const myId = req.user.id || req.user._id;
 
-    // Assuming you use Mongoose and populate the user field:
-    const conversations = await Conversation.find({ participants: req.user._id })
-      .populate({
-        path: "user",
-        select: "username countryFlag verified", // <-- Make sure 'verified' is included
+    // Find all users you've messaged or who have messaged you
+    const sent = await Message.find({ from: myId }).distinct("to");
+    const received = await Message.find({ to: myId }).distinct("from");
+    const userIds = Array.from(new Set([...sent, ...received])).filter(
+      id => id.toString() !== myId.toString()
+    );
+
+    // For each user, get user info, last message, and unread count
+    const results = await Promise.all(userIds.map(async (userId) => {
+      const user = await User.findById(userId).select("_id username countryFlag verified");
+      if (!user) return null;
+
+      const lastMessage = await Message.findOne({
+        $or: [
+          { from: myId, to: userId },
+          { from: userId, to: myId }
+        ]
       })
-      .populate("lastMessage")
-      .lean();
+        .sort({ createdAt: -1 })
+        .lean();
 
-    console.log("Aggregation result:", conversations);
+      const unreadCount = await Message.countDocuments({
+        from: userId,
+        to: myId,
+        read: { $ne: true }
+      });
 
-    const results = await Promise.all(conversations.map(async conv => {
-      try {
-        const user = await User.findById(conv._id).select("_id username countryFlag verified"); // <-- 'verified' added here
-        const unreadCount = await Message.countDocuments({
-          from: conv._id,
-          to: myId,
-          read: { $ne: true }
-        });
-        return {
-          user,
-          lastMessage: conv.lastMessage,
-          unreadCount
-        };
-      } catch (innerErr) {
-        console.error("Error fetching user or unread count for conversation:", conv, innerErr);
-        return null;
-      }
+      return {
+        user,
+        lastMessage,
+        unreadCount
+      };
     }));
 
+    // Filter out any nulls (in case a user was deleted)
     const filteredResults = results.filter(r => r && r.user);
-
-    console.log("Final conversation results:", filteredResults);
 
     res.json(filteredResults);
   } catch (err) {
