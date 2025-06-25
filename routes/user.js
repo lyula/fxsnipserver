@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
 const { requireAuth } = require("../middleware/auth");
-const { hashId } = require("../utils/hash");
+const { hashId } = require("../utils/hash"); // Make sure this is imported
 
 // Get profile
 router.get("/profile", requireAuth, async (req, res) => {
@@ -197,6 +197,45 @@ router.get("/following/:username/search", requireAuth, async (req, res) => {
     .select("username country countryFlag _id");
 
   res.json({ following });
+});
+
+// Delete user and update followers/following counts
+router.delete("/delete/:id", requireAuth, async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) return res.status(404).json({ message: "User not found" });
+
+  // Get the hashed ID of the user to be deleted
+  const hashedId = hashId(user._id.toString());
+
+  // 1. Remove this user from followersHashed/followersRaw/followingHashed/followingRaw of others
+  // 2. Decrement followers count for users this user was following
+  if (user.followingHashed && user.followingHashed.length > 0) {
+    await User.updateMany(
+      { followersHashed: { $in: [hashedId] } },
+      {
+        $pull: { followersHashed: hashedId, followersRaw: user._id },
+        $inc: { followers: -1 }
+      }
+    );
+  }
+
+  // 3. Decrement following count for users who were following this user
+  if (user.followersHashed && user.followersHashed.length > 0) {
+    await User.updateMany(
+      { followingHashed: { $in: [hashedId] } },
+      {
+        $pull: { followingHashed: hashedId, followingRaw: user._id },
+        $inc: { following: -1 }
+      }
+    );
+  }
+
+  // 4. Optionally, remove this user from any other custom arrays
+
+  // 5. Delete the user
+  await user.deleteOne();
+
+  res.json({ message: "User deleted and relationships cleaned up." });
 });
 
 module.exports = router;
