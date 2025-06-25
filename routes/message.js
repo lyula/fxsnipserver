@@ -16,7 +16,7 @@ router.post("/", requireAuth, async (req, res) => {
 // Get all conversations for the logged-in user, with unread counts
 router.get("/", requireAuth, async (req, res) => {
   try {
-    const myId = mongoose.Types.ObjectId(req.user.id || req.user._id);
+    const myId = new mongoose.Types.ObjectId(req.user.id || req.user._id);
     console.log("Fetching conversations for user:", myId);
 
     const conversations = await Message.aggregate([
@@ -28,9 +28,7 @@ router.get("/", requireAuth, async (req, res) => {
           ]
         }
       },
-      {
-        $sort: { createdAt: -1 }
-      },
+      { $sort: { createdAt: -1 } },
       {
         $group: {
           _id: {
@@ -66,7 +64,6 @@ router.get("/", requireAuth, async (req, res) => {
       }
     }));
 
-    // Filter out any null results from failed lookups
     const filteredResults = results.filter(r => r && r.user);
 
     console.log("Final conversation results:", filteredResults);
