@@ -8,8 +8,14 @@ exports.register = async (req, res, next) => {
     if (!username || !email || !password || !country) {
       return res.status(400).json({ message: "All fields are required." });
     }
+    // Check for existing email
     const exists = await User.findOne({ email });
     if (exists) return res.status(409).json({ message: "Email already registered." });
+
+    // Check for existing username
+    const usernameExists = await User.findOne({ username });
+    if (usernameExists) return res.status(409).json({ message: "Username already taken." });
+
     const hash = await bcrypt.hash(password, 10);
     const user = await User.create({ username, email, password: hash, country, countryCode, countryFlag });
     res.status(201).json({ message: "User registered successfully" });
