@@ -230,9 +230,17 @@ router.delete("/delete/:id", requireAuth, async (req, res) => {
     );
   }
 
-  // 4. Optionally, remove this user from any other custom arrays
+  // 4. Decrement followers count for all users the deleted user was following
+  if (user.followingRaw && user.followingRaw.length > 0) {
+    await User.updateMany(
+      { _id: { $in: user.followingRaw } },
+      { $inc: { followers: -1 } }
+    );
+  }
 
-  // 5. Delete the user
+  // 5. Optionally, remove this user from any other custom arrays
+
+  // 6. Delete the user
   await user.deleteOne();
 
   res.json({ message: "User deleted and relationships cleaned up." });
