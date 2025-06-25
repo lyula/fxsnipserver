@@ -3,6 +3,7 @@ const router = express.Router();
 const { requireAuth } = require("../middleware/auth");
 const Message = require("../models/Message");
 const User = require("../models/User");
+const Conversation = require("../models/Conversation");
 const mongoose = require("mongoose");
 
 // Send a message
