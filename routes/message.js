@@ -19,35 +19,20 @@ router.get("/", requireAuth, async (req, res) => {
     const myId = new mongoose.Types.ObjectId(req.user.id || req.user._id);
     console.log("Fetching conversations for user:", myId);
 
-    const conversations = await Message.aggregate([
-      {
-        $match: {
-          $or: [
-            { from: myId },
-            { to: myId }
-          ]
-        }
-      },
-      { $sort: { createdAt: -1 } },
-      {
-        $group: {
-          _id: {
-            $cond: [
-              { $eq: ["$from", myId] },
-              "$to",
-              "$from"
-            ]
-          },
-          lastMessage: { $first: "$$ROOT" }
-        }
-      }
-    ]);
+    // Assuming you use Mongoose and populate the user field:
+    const conversations = await Conversation.find({ participants: req.user._id })
+      .populate({
+        path: "user",
+        select: "username countryFlag verified", // <-- Make sure 'verified' is included
+      })
+      .populate("lastMessage")
+      .lean();
 
     console.log("Aggregation result:", conversations);
 
     const results = await Promise.all(conversations.map(async conv => {
       try {
-        const user = await User.findById(conv._id).select("_id username countryFlag");
+        const user = await User.findById(conv._id).select("_id username countryFlag verified"); // <-- 'verified' added here
         const unreadCount = await Message.countDocuments({
           from: conv._id,
           to: myId,
