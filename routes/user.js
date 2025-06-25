@@ -6,20 +6,9 @@ const { hashId } = require("../utils/hash"); // Make sure this is imported
 
 // Get profile
 router.get("/profile", requireAuth, async (req, res) => {
-  const user = await User.findById(req.user.id);
-  if (!user) return res.status(404).json({ message: "User not found" });
-  res.json({
-    username: user.username,
-    email: user.email,
-    joined: user.createdAt,
-    followers: user.followers || 0,
-    following: user.following || 0,
-    followersHashed: user.followersHashed || [],
-    followingHashed: user.followingHashed || [],
-    country: user.country,
-    countryFlag: user.countryFlag,
-    verified: user.verified || false, // <-- Add this
-  });
+  const user = await User.findById(req.user.id)
+    .select("username email country countryFlag verified"); // <-- Add verified here
+  res.json(user);
 });
 
 // Update profile
@@ -36,15 +25,14 @@ router.put("/profile", requireAuth, async (req, res) => {
 // Search users by username or email (case-insensitive, partial match)
 router.get("/search", requireAuth, async (req, res) => {
   const q = req.query.q || "";
-  if (!q) return res.json({ users: [] });
   const users = await User.find({
     $or: [
       { username: { $regex: q, $options: "i" } },
       { email: { $regex: q, $options: "i" } }
     ]
   })
-    .limit(10)
-    .select("username country countryFlag _id"); // Only return username, country, countryFlag, _id
+    .select("username country countryFlag verified") // <-- Add verified here
+    .limit(20);
   res.json({ users });
 });
 
@@ -135,7 +123,7 @@ router.get("/public/:username", async (req, res) => {
   });
 });
 
-// Get followers list for a user by username
+// Followers List
 router.get("/followers/:username", async (req, res) => {
   const user = await User.findOne({ username: req.params.username });
   if (!user) return res.status(404).json({ message: "User not found" });
@@ -144,12 +132,11 @@ router.get("/followers/:username", async (req, res) => {
 
   // Find all users whose followingHashed contains this user's hashed ID
   const followers = await User.find({ followingHashed: hashedId })
-    .select("username country countryFlag _id");
-
+    .select("username country countryFlag _id verified"); // <-- Add verified here
   res.json({ followers });
 });
 
-// Search a user's followers by username
+// Followers Search
 router.get("/followers/:username/search", requireAuth, async (req, res) => {
   const user = await User.findOne({ username: req.params.username });
   if (!user) return res.status(404).json({ message: "User not found" });
@@ -162,12 +149,11 @@ router.get("/followers/:username/search", requireAuth, async (req, res) => {
   const followers = await User.find({
     followingHashed: hashedId,
     username: { $regex: q, $options: "i" }
-  }).select("username country countryFlag _id");
-
+  }).select("username country countryFlag _id verified"); // <-- Add verified here
   res.json({ followers });
 });
 
-// Get following list for a user by username
+// Following List
 router.get("/following/:username", requireAuth, async (req, res) => {
   const user = await User.findOne({ username: req.params.username });
   if (!user) return res.status(404).json({ message: "User not found" });
@@ -177,12 +163,11 @@ router.get("/following/:username", requireAuth, async (req, res) => {
 
   const following = await User.find({
     _id: { $in: followingRaw }
-  }).select("username country countryFlag _id");
-
+  }).select("username country countryFlag _id verified"); // <-- Add verified here
   res.json({ following });
 });
 
-// Search a user's following by username
+// Following Search
 router.get("/following/:username/search", requireAuth, async (req, res) => {
   const user = await User.findOne({ username: req.params.username });
   if (!user) return res.status(404).json({ message: "User not found" });
@@ -196,8 +181,7 @@ router.get("/following/:username/search", requireAuth, async (req, res) => {
     username: { $regex: q, $options: "i" }
   })
     .limit(80)
-    .select("username country countryFlag _id");
-
+    .select("username country countryFlag _id verified"); // <-- Add verified here
   res.json({ following });
 });
 

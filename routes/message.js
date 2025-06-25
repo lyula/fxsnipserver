@@ -98,4 +98,21 @@ router.get("/:userId", requireAuth, async (req, res) => {
   }
 });
 
+// Additional route to fetch user details by IDs
+router.post("/users", requireAuth, async (req, res) => {
+  try {
+    const { userIds } = req.body;
+    if (!userIds || !userIds.length) return res.status(400).json({ message: "No user IDs provided." });
+
+    // Fetch users
+    const users = await User.find({ _id: { $in: userIds } })
+      .select("username countryFlag verified"); // <-- Add verified here
+
+    res.json(users);
+  } catch (err) {
+    console.error("Error in /api/message/users POST:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 module.exports = router;
