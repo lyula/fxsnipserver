@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { requireAuth } = require("../middleware/auth"); // <-- Add this line
+const { requireAuth } = require("../middleware/auth");
 const Message = require("../models/Message");
 const User = require("../models/User");
 
@@ -13,7 +13,7 @@ router.post("/", requireAuth, async (req, res) => {
 });
 
 // Get all conversations for the logged-in user, with unread counts
-router.get("/", auth, async (req, res) => {
+router.get("/", requireAuth, async (req, res) => {
   try {
     const myId = req.user.id || req.user._id;
     // Find all users you've had conversations with
@@ -65,7 +65,7 @@ router.get("/", auth, async (req, res) => {
 });
 
 // Get all messages between logged-in user and another user, and mark as read
-router.get("/:userId", auth, async (req, res) => {
+router.get("/:userId", requireAuth, async (req, res) => {
   try {
     const myId = req.user.id || req.user._id;
     const otherId = req.params.userId;

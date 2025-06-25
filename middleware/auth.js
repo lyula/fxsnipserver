@@ -1,8 +1,6 @@
 const jwt = require("jsonwebtoken");
-const router = require("express").Router();
-const auth = require("../middleware/auth");
 
-router.post("/", auth, async (req, res) => {
+function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ message: "No token provided" });
@@ -15,6 +13,6 @@ router.post("/", auth, async (req, res) => {
   } catch (err) {
     return res.status(401).json({ message: "Invalid token" });
   }
-});
+}
 
-module.exports = router;
+module.exports = { requireAuth };
