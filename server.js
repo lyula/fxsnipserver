@@ -7,3 +7,5 @@ connectDB().then(() => {
     console.log("Server running");
   });
 });
+
+//had to reset back to this commit 44a10dd
