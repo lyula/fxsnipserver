@@ -125,14 +125,15 @@ router.get("/public/:username", async (req, res) => {
   if (!user) return res.status(404).json({ message: "User not found" });
 
   res.json({
-    _id: user._id, // <-- Make sure this is present!
+    _id: user._id,
     username: user.username,
     country: user.country,
     countryFlag: user.countryFlag,
     joined: user.createdAt,
     followers: user.followers || 0,
     following: user.following || 0,
-    verified: user.verified || false, // <-- Add this
+    verified: user.verified || false,
+    followersHashed: user.followersHashed || [], // <-- THIS IS REQUIRED
   });
 });
 

@@ -6,7 +6,10 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   followers: { type: Number, default: 0 },
   following: { type: Number, default: 0 },
-  followersHashed: [{ type: String }],
+  followersHashed: {
+    type: [String],
+    default: [],
+  },
   followingHashed: [{ type: String }],
   followingRaw: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   country: { type: String },
