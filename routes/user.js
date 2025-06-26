@@ -264,7 +264,8 @@ router.delete("/delete/:id", requireAuth, async (req, res) => {
 router.get("/notifications", requireAuth, async (req, res) => {
   const notifications = await Notification.find({ user: req.user.id })
     .sort({ createdAt: -1 })
-    .limit(100);
+    .limit(100)
+    .populate("from", "username verified"); // <-- Add this line
   res.json(notifications);
 });
 
