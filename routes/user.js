@@ -220,7 +220,10 @@ router.delete("/delete/:id", requireAuth, async (req, res) => {
   if (user.followingRaw && user.followingRaw.length > 0) {
     await User.updateMany(
       { _id: { $in: user.followingRaw } },
-      { $inc: { followers: -1 } }
+      {
+        $inc: { followers: -1 },
+        $pull: { followersHashed: hashedId, followersRaw: user._id }
+      }
     );
   }
 

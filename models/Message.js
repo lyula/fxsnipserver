@@ -5,7 +5,7 @@ const MessageSchema = new mongoose.Schema({
   to: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   text: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
-  read: { type: Boolean, default: false } // <-- Ensure this field exists
+  read: { type: Boolean, default: false } // <-- Ensuring this field exists
 });
 
 module.exports = mongoose.model("Message", MessageSchema);
