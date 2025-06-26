@@ -5,9 +5,23 @@ const { generateToken } = require("../utils/jwt");
 exports.register = async (req, res, next) => {
   try {
     const { username, email, password, country, countryCode, countryFlag } = req.body;
-    if (!username || !email || !password || !country) {
-      return res.status(400).json({ message: "All fields are required." });
+
+    // Username validation (Instagram-style)
+    const usernameRegex = /^(?!.*[_.]{2})[a-zA-Z0-9](?!.*[_.]{2})[a-zA-Z0-9._]{1,28}[a-zA-Z0-9]$/;
+    if (
+      !username ||
+      !usernameRegex.test(username) ||
+      username.length < 3 ||
+      username.length > 30 ||
+      /^\d+$/.test(username) || // cannot be only numbers
+      username.includes("@") // cannot be an email
+    ) {
+      return res.status(400).json({
+        message:
+          "Invalid username. Use 3-30 letters, numbers, underscores, or periods. Cannot be only numbers, start/end with period/underscore, or contain '@'."
+      });
     }
+
     // Check for existing email
     const exists = await User.findOne({ email });
     if (exists) return res.status(409).json({ message: "Email already registered." });
