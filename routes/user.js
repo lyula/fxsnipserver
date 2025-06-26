@@ -4,6 +4,15 @@ const User = require("../models/User");
 const { requireAuth } = require("../middleware/auth");
 const { hashId } = require("../utils/hash"); // Make sure this is imported
 
+// Helper to sync counts
+async function syncFollowCounts(userId) {
+  const user = await User.findById(userId);
+  if (!user) return;
+  user.followers = user.followersHashed ? user.followersHashed.length : 0;
+  user.following = user.followingHashed ? user.followingHashed.length : 0;
+  await user.save();
+}
+
 // Get profile
 router.get("/profile", requireAuth, async (req, res) => {
   const user = await User.findById(req.user.id)
@@ -60,13 +69,15 @@ router.post("/follow/:id", requireAuth, async (req, res) => {
   }
 
   await User.findByIdAndUpdate(targetId, {
-    $inc: { followers: 1 },
     $push: { followersHashed: hashedUserId }
   });
   await User.findByIdAndUpdate(userId, {
-    $inc: { following: 1 },
     $push: { followingHashed: hashedTargetId, followingRaw: target._id }
   });
+
+  // Sync counts for both users
+  await syncFollowCounts(targetId);
+  await syncFollowCounts(userId);
 
   res.json({ message: "Followed", userId: targetId });
 });
@@ -95,13 +106,15 @@ router.post("/unfollow/:id", requireAuth, async (req, res) => {
   }
 
   await User.findByIdAndUpdate(targetId, {
-    $inc: { followers: -1 },
     $pull: { followersHashed: hashedUserId }
   });
   await User.findByIdAndUpdate(userId, {
-    $inc: { following: -1 },
     $pull: { followingHashed: hashedTargetId, followingRaw: target._id }
   });
+
+  // Sync counts for both users
+  await syncFollowCounts(targetId);
+  await syncFollowCounts(userId);
 
   res.json({ message: "Unfollowed", userId: targetId });
 });
