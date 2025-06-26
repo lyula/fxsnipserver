@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
+const Notification = require("../models/Notification");
 const { requireAuth } = require("../middleware/auth");
 const { hashId } = require("../utils/hash"); // Make sure this is imported
 
@@ -78,6 +79,16 @@ router.post("/follow/:id", requireAuth, async (req, res) => {
   // Sync counts for both users
   await syncFollowCounts(targetId);
   await syncFollowCounts(userId);
+
+  // After successful follow:
+  // Create notification for the followed user
+  await Notification.create({
+    user: targetId,
+    type: "follow",
+    text: `${user.username} followed you`,
+    from: userId,
+    read: false,
+  });
 
   res.json({ message: "Followed", userId: targetId });
 });
@@ -247,6 +258,26 @@ router.delete("/delete/:id", requireAuth, async (req, res) => {
   await user.deleteOne();
 
   res.json({ message: "User deleted and relationships cleaned up." });
+});
+
+// Get notifications for logged-in user
+router.get("/notifications", requireAuth, async (req, res) => {
+  const notifications = await Notification.find({ user: req.user.id })
+    .sort({ createdAt: -1 })
+    .limit(100);
+  res.json(notifications);
+});
+
+// Get unread notification count
+router.get("/notifications/unread-count", requireAuth, async (req, res) => {
+  const count = await Notification.countDocuments({ user: req.user.id, read: false });
+  res.json({ count });
+});
+
+// Mark all notifications as read
+router.post("/notifications/mark-read", requireAuth, async (req, res) => {
+  await Notification.updateMany({ user: req.user.id, read: false }, { $set: { read: true } });
+  res.json({ success: true });
 });
 
 module.exports = router;
