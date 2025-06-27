@@ -9,6 +9,8 @@ exports.createPost = async (req, res) => {
       content,
       image,
       author: req.user.id,
+      comments: [],
+      likes: [],
     });
     await post.save();
     res.status(201).json(post);
