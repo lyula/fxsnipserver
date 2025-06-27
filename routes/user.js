@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
 const Notification = require("../models/Notification");
-const { requireAuth } = require("../middleware/auth");
+const requireAuth = require("../middleware/auth");
 const { hashId } = require("../utils/hash"); // Make sure this is imported
 
 // Helper to sync counts
