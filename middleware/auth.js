@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 
-function requireAuth(req, res, next) {
+module.exports = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ message: "No token provided" });
@@ -13,6 +13,4 @@ function requireAuth(req, res, next) {
   } catch (err) {
     return res.status(401).json({ message: "Invalid token" });
   }
-}
-
-module.exports = { requireAuth };
+};
