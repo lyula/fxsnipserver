@@ -13,6 +13,8 @@ exports.createPost = async (req, res) => {
       likes: [],
     });
     await post.save();
+    // Populate author before sending response
+    await post.populate("author", "username verified");
     res.status(201).json(post);
   } catch (error) {
     res.status(500).json({ error: "Failed to create post" });
@@ -75,8 +77,9 @@ exports.addComment = async (req, res) => {
     post.comments.push({ content, author: req.user.id });
     await post.save();
 
-    // Populate author (with verified) for the new comment
+    // Populate author for the last comment (the one just added)
     await post
+      .populate("author", "username verified")
       .populate({
         path: "comments.author",
         select: "username verified",
@@ -164,8 +167,8 @@ exports.addReply = async (req, res) => {
     comment.replies.push({ content, author: req.user.id });
     await post.save();
 
-    // Populate author fields for response
     await post
+      .populate("author", "username verified")
       .populate({ path: "comments.author", select: "username verified" })
       .populate({ path: "comments.replies.author", select: "username verified" })
       .execPopulate();
