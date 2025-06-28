@@ -22,7 +22,16 @@ exports.createPost = async (req, res) => {
 // Get all posts
 exports.getPosts = async (req, res) => {
   try {
-    const posts = await Post.find().populate("author", "username verified");
+    const posts = await Post.find()
+      .populate("author", "username verified")
+      .populate({
+        path: "comments.author",
+        select: "username verified",
+      })
+      .populate({
+        path: "comments.replies.author",
+        select: "username verified",
+      });
     res.status(200).json(posts);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch posts" });
@@ -65,6 +74,19 @@ exports.addComment = async (req, res) => {
 
     post.comments.push({ content, author: req.user.id });
     await post.save();
+
+    // Populate author (with verified) for the new comment
+    await post
+      .populate({
+        path: "comments.author",
+        select: "username verified",
+      })
+      .populate({
+        path: "comments.replies.author",
+        select: "username verified",
+      })
+      .execPopulate();
+
     res.status(201).json(post);
   } catch (error) {
     res.status(500).json({ error: "Failed to add comment" });

@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { createPost, getPosts, likePost, addComment } = require("../controllers/postController");
+const { createPost, getPosts, likePost, addComment, addReply } = require("../controllers/postController");
 const auth = require("../middleware/auth");
 const Post = require("../models/Post");
 const User = require("../models/User");
@@ -15,7 +15,10 @@ router.get("/", getPosts);
 router.post("/:postId/like", auth, likePost);
 
 // Add a comment to a post
-router.post("/:postId/comment", auth, addComment);
+router.post("/:postId/comments", auth, addComment);
+
+// Add a reply to a comment
+router.post("/:postId/comments/:commentId/replies", auth, addReply);
 
 // Get posts by username (public profile)
 router.get("/user/:username", async (req, res) => {
