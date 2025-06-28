@@ -178,3 +178,17 @@ exports.addReply = async (req, res) => {
     res.status(500).json({ error: "Failed to add reply" });
   }
 };
+
+// Increment post views
+exports.incrementPostViews = async (req, res) => {
+  try {
+    const post = await Post.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { views: 1 } },
+      { new: true }
+    );
+    res.json({ views: post.views });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to increment views" });
+  }
+};

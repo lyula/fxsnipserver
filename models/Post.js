@@ -22,6 +22,7 @@ const postSchema = new mongoose.Schema(
     author: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     comments: [commentSchema],
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // Already present
+    views: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

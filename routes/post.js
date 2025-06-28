@@ -7,7 +7,8 @@ const {
   addComment, 
   addReply, 
   likeComment,    
-  likeReply       
+  likeReply,
+  incrementPostViews    
 } = require("../controllers/postController");
 const auth = require("../middleware/auth");
 const Post = require("../models/Post");
@@ -33,6 +34,9 @@ router.post("/:postId/comments", auth, addComment);
 
 // Add a reply to a comment
 router.post("/:postId/comments/:commentId/replies", auth, addReply);
+
+// Increment post views
+router.post('/:id/view', incrementPostViews);
 
 // Get posts by username (public profile)
 router.get("/user/:username", async (req, res) => {
