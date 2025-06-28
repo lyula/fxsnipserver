@@ -1,6 +1,14 @@
 const express = require("express");
 const router = express.Router();
-const { createPost, getPosts, likePost, addComment, addReply } = require("../controllers/postController");
+const { 
+  createPost, 
+  getPosts, 
+  likePost, 
+  addComment, 
+  addReply, 
+  likeComment,    
+  likeReply       
+} = require("../controllers/postController");
 const auth = require("../middleware/auth");
 const Post = require("../models/Post");
 const User = require("../models/User");
@@ -13,6 +21,12 @@ router.get("/", getPosts);
 
 // Like a post
 router.post("/:postId/like", auth, likePost);
+
+// Like a comment
+router.post("/:postId/comments/:commentId/like", auth, likeComment); 
+
+// Like a reply
+router.post("/:postId/comments/:commentId/replies/:replyId/like", auth, likeReply); 
 
 // Add a comment to a post
 router.post("/:postId/comments", auth, addComment);

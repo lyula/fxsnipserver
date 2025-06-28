@@ -92,3 +92,60 @@ exports.addComment = async (req, res) => {
     res.status(500).json({ error: "Failed to add comment" });
   }
 };
+
+// Like a comment on a post
+exports.likeComment = async (req, res) => {
+  try {
+    const { postId, commentId } = req.params;
+    const post = await Post.findById(postId);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+
+    const comment = post.comments.id(commentId);
+    if (!comment) return res.status(404).json({ error: "Comment not found" });
+
+    if (!comment.likes.includes(req.user.id)) {
+      comment.likes.push(req.user.id);
+      await post.save();
+    }
+
+    // Populate author fields for response
+    await post
+      .populate({ path: "comments.author", select: "username verified" })
+      .populate({ path: "comments.replies.author", select: "username verified" })
+      .execPopulate();
+
+    res.status(200).json(post);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to like comment" });
+  }
+};
+
+// Like a reply to a comment on a post
+exports.likeReply = async (req, res) => {
+  try {
+    const { postId, commentId, replyId } = req.params;
+    const post = await Post.findById(postId);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+
+    const comment = post.comments.id(commentId);
+    if (!comment) return res.status(404).json({ error: "Comment not found" });
+
+    const reply = comment.replies.id(replyId);
+    if (!reply) return res.status(404).json({ error: "Reply not found" });
+
+    if (!reply.likes.includes(req.user.id)) {
+      reply.likes.push(req.user.id);
+      await post.save();
+    }
+
+    // Populate author fields for response
+    await post
+      .populate({ path: "comments.author", select: "username verified" })
+      .populate({ path: "comments.replies.author", select: "username verified" })
+      .execPopulate();
+
+    res.status(200).json(post);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to like reply" });
+  }
+};
