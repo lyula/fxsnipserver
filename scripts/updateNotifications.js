@@ -4,7 +4,7 @@ const User = require("../models/User");
 const Post = require("../models/Post");
 
 // Update this with your actual MongoDB connection string
-const MONGODB_URI = "mongodb://localhost:27017/your-db-name";
+const MONGODB_URI = "mongodb+srv://sacredlyula:4bkvZSUfRfWqBCW9@fxsnipdb.lotjlph.mongodb.net/fxsnipdb?retryWrites=true&w=majority&appName=fxsnipdb";
 
 async function updateNotifications() {
   await mongoose.connect(MONGODB_URI);

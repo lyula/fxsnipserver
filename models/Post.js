@@ -1,34 +1,36 @@
 const mongoose = require("mongoose");
 
-// Define the schema for replies
-const replySchema = new mongoose.Schema({
-  content: String,
-  author: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // <-- Add this line
-  createdAt: { type: Date, default: Date.now },
-});
+const ReplySchema = new mongoose.Schema(
+  {
+    content: String,
+    author: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    createdAt: { type: Date, default: Date.now },
+    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  },
+  { _id: true } // <-- ensures _id is present
+);
 
-// Define the schema for comments
-const commentSchema = new mongoose.Schema({
-  content: String,
-  author: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // <-- Add this line
-  replies: [replySchema],
-  createdAt: { type: Date, default: Date.now },
-});
+const CommentSchema = new mongoose.Schema(
+  {
+    content: String,
+    author: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    createdAt: { type: Date, default: Date.now },
+    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    replies: [ReplySchema],
+  },
+  { _id: true } // <-- ensures _id is present
+);
 
-// Define the schema for posts
-const postSchema = new mongoose.Schema(
+const PostSchema = new mongoose.Schema(
   {
     content: String,
     image: String,
     author: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    comments: [commentSchema],
-    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // Already present
+    comments: [CommentSchema],
+    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     views: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
 
-// Apply the schema to the Post model
-module.exports = mongoose.model("Post", postSchema);
+module.exports = mongoose.model("Post", PostSchema);
