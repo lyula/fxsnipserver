@@ -308,7 +308,8 @@ exports.editPost = async (req, res) => {
     
     post.content = content;
     if (image !== undefined) post.image = image;
-    post.updatedAt = new Date();
+    post.editedAt = new Date();
+    post.isEdited = true;
     
     await post.save();
     
@@ -352,7 +353,7 @@ exports.deletePost = async (req, res) => {
   }
 };
 
-// Edit a comment
+// Edit a comment - REPLACE EXISTING editComment FUNCTION
 exports.editComment = async (req, res) => {
   try {
     const { postId, commentId } = req.params;
@@ -370,8 +371,12 @@ exports.editComment = async (req, res) => {
     }
     
     comment.content = content;
-    comment.updatedAt = new Date();
+    comment.editedAt = new Date();
+    comment.isEdited = true;
+    comment.updatedAt = new Date(); // Manually set since subdocs don't auto-update
     
+    // Mark the post as modified to trigger save
+    post.markModified('comments');
     await post.save();
     
     // Populate author fields for response
@@ -425,7 +430,7 @@ exports.deleteComment = async (req, res) => {
   }
 };
 
-// Edit a reply
+// Edit a reply - REPLACE EXISTING editReply FUNCTION  
 exports.editReply = async (req, res) => {
   try {
     const { postId, commentId, replyId } = req.params;
@@ -446,8 +451,12 @@ exports.editReply = async (req, res) => {
     }
     
     reply.content = content;
-    reply.updatedAt = new Date();
+    reply.editedAt = new Date();
+    reply.isEdited = true;
+    reply.updatedAt = new Date(); // Manually set since subdocs don't auto-update
     
+    // Mark the post as modified to trigger save
+    post.markModified('comments');
     await post.save();
     
     // Populate author fields for response
