@@ -1,4 +1,5 @@
 const Post = require("../models/Post");
+const Notification = require("../models/Notification");
 
 // Create a new post
 exports.createPost = async (req, res) => {
@@ -52,7 +53,6 @@ exports.likePost = async (req, res) => {
 
       // Send notification to the post author
       if (post.author.toString() !== req.user.id) {
-        const Notification = require("../models/Notification");
         await Notification.create({
           user: post.author,
           from: req.user.id,
@@ -82,7 +82,6 @@ exports.addComment = async (req, res) => {
 
     // Send notification to the post author
     if (post.author.toString() !== req.user.id) {
-      const Notification = require("../models/Notification");
       await Notification.create({
         user: post.author,
         from: req.user.id,
@@ -127,7 +126,6 @@ exports.likeComment = async (req, res) => {
 
       // Send notification to the comment author
       if (comment.author.toString() !== req.user.id) {
-        const Notification = require("../models/Notification");
         await Notification.create({
           user: comment.author,
           from: req.user.id,
@@ -170,7 +168,6 @@ exports.likeReply = async (req, res) => {
 
       // Send notification to the reply author
       if (reply.author.toString() !== req.user.id) {
-        const Notification = require("../models/Notification");
         await Notification.create({
           user: reply.author,
           from: req.user.id,
@@ -212,7 +209,6 @@ exports.addReply = async (req, res) => {
 
     // Send notification to the comment author
     if (comment.author.toString() !== req.user.id) {
-      const Notification = require("../models/Notification");
       await Notification.create({
         user: comment.author,
         from: req.user.id,
@@ -246,5 +242,19 @@ exports.incrementPostViews = async (req, res) => {
     res.json({ views: post.views });
   } catch (err) {
     res.status(500).json({ error: "Failed to increment views" });
+  }
+};
+
+// Get notifications
+exports.getNotifications = async (req, res) => {
+  try {
+    const notifications = await Notification.find({ user: req.user.id })
+      .sort({ createdAt: -1 })
+      .populate("from", "username verified") // populate actor info
+      .populate("post", "content") // populate post info (add more fields as needed)
+      .lean();
+    res.json(notifications);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch notifications" });
   }
 };
