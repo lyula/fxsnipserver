@@ -1,5 +1,4 @@
 const Post = require("../models/Post");
-const Notification = require("../models/Notification");
 
 // Create a new post
 exports.createPost = async (req, res) => {
@@ -53,11 +52,14 @@ exports.likePost = async (req, res) => {
 
       // Send notification to the post author
       if (post.author.toString() !== req.user.id) {
-        const notification = new Notification({
+        const Notification = require("../models/Notification");
+        await Notification.create({
           user: post.author,
+          from: req.user.id,
+          type: "like_post",
+          post: post._id,
           message: `${req.user.username} liked your post.`,
         });
-        await notification.save();
       }
     }
     res.status(200).json(post);
@@ -74,8 +76,21 @@ exports.addComment = async (req, res) => {
     const post = await Post.findById(postId);
     if (!post) return res.status(404).json({ error: "Post not found" });
 
-    post.comments.push({ content, author: req.user.id });
+    const newComment = { content, author: req.user.id };
+    post.comments.push(newComment);
     await post.save();
+
+    // Send notification to the post author
+    if (post.author.toString() !== req.user.id) {
+      const Notification = require("../models/Notification");
+      await Notification.create({
+        user: post.author,
+        from: req.user.id,
+        type: "comment",
+        post: post._id,
+        message: `${req.user.username} commented on your post.`,
+      });
+    }
 
     // Populate author for the last comment (the one just added)
     await post
@@ -109,6 +124,19 @@ exports.likeComment = async (req, res) => {
     if (!comment.likes.includes(req.user.id)) {
       comment.likes.push(req.user.id);
       await post.save();
+
+      // Send notification to the comment author
+      if (comment.author.toString() !== req.user.id) {
+        const Notification = require("../models/Notification");
+        await Notification.create({
+          user: comment.author,
+          from: req.user.id,
+          type: "like_comment",
+          post: post._id,
+          comment: comment._id,
+          message: `${req.user.username} liked your comment on a post.`,
+        });
+      }
     }
 
     // Populate author fields for response
@@ -139,6 +167,20 @@ exports.likeReply = async (req, res) => {
     if (!reply.likes.includes(req.user.id)) {
       reply.likes.push(req.user.id);
       await post.save();
+
+      // Send notification to the reply author
+      if (reply.author.toString() !== req.user.id) {
+        const Notification = require("../models/Notification");
+        await Notification.create({
+          user: reply.author,
+          from: req.user.id,
+          type: "like_reply",
+          post: post._id,
+          comment: comment._id,
+          reply: reply._id,
+          message: `${req.user.username} liked your reply on a post.`,
+        });
+      }
     }
 
     // Populate author fields for response
@@ -164,11 +206,25 @@ exports.addReply = async (req, res) => {
     const comment = post.comments.id(commentId);
     if (!comment) return res.status(404).json({ error: "Comment not found" });
 
-    comment.replies.push({ content, author: req.user.id });
+    const newReply = { content, author: req.user.id };
+    comment.replies.push(newReply);
     await post.save();
 
+    // Send notification to the comment author
+    if (comment.author.toString() !== req.user.id) {
+      const Notification = require("../models/Notification");
+      await Notification.create({
+        user: comment.author,
+        from: req.user.id,
+        type: "reply",
+        post: post._id,
+        comment: comment._id,
+        message: `${req.user.username} replied to your comment on a post.`,
+      });
+    }
+
+    // Populate author fields for response
     await post
-      .populate("author", "username verified")
       .populate({ path: "comments.author", select: "username verified" })
       .populate({ path: "comments.replies.author", select: "username verified" })
       .execPopulate();
