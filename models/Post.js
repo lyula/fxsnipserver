@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 
+// Define the schema for replies
 const replySchema = new mongoose.Schema({
   content: String,
   author: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
@@ -7,6 +8,7 @@ const replySchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+// Define the schema for comments
 const commentSchema = new mongoose.Schema({
   content: String,
   author: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
@@ -15,6 +17,7 @@ const commentSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+// Define the schema for posts
 const postSchema = new mongoose.Schema(
   {
     content: String,
@@ -27,4 +30,5 @@ const postSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Apply the schema to the Post model
 module.exports = mongoose.model("Post", postSchema);
