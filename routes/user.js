@@ -262,11 +262,23 @@ router.delete("/delete/:id", requireAuth, async (req, res) => {
 
 // Get notifications for logged-in user
 router.get("/notifications", requireAuth, async (req, res) => {
-  const notifications = await Notification.find({ user: req.user.id })
-    .sort({ createdAt: -1 })
-    .limit(100)
-    .populate("from", "username verified"); // <-- Add this line
-  res.json(notifications);
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+
+    const notifications = await Notification.find({ user: req.user.id })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate("from", "username verified")
+      .lean();
+    
+    res.json(notifications);
+  } catch (err) {
+    console.error("Error fetching notifications:", err);
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 // Get unread notification count

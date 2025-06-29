@@ -16,47 +16,65 @@ router.post("/", requireAuth, async (req, res) => {
 // Get all conversations for the logged-in user, with unread counts
 router.get("/", requireAuth, async (req, res) => {
   try {
-    const myId = req.user.id || req.user._id;
+    const myId = new mongoose.Types.ObjectId(req.user.id);
 
-    // Find all users you've messaged or who have messaged you
-    const sent = await Message.find({ from: myId }).distinct("to");
-    const received = await Message.find({ to: myId }).distinct("from");
-    // Convert all IDs to strings for proper deduplication
-    const userIds = Array.from(
-      new Set([...sent, ...received].map(id => id.toString()))
-    ).filter(id => id !== myId.toString());
+    const conversations = await Message.aggregate([
+      {
+        $match: {
+          $or: [{ from: myId }, { to: myId }]
+        }
+      },
+      {
+        $addFields: {
+          otherUser: {
+            $cond: [
+              { $eq: ["$from", myId] },
+              "$to",
+              "$from"
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: "$otherUser",
+          lastMessage: { $last: "$$ROOT" },
+          unreadCount: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$to", myId] },
+                    { $ne: ["$read", true] }
+                  ]
+                },
+                1,
+                0
+              ]
+            }
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "user",
+          pipeline: [
+            { $project: { username: 1, countryFlag: 1, verified: 1 } }
+          ]
+        }
+      },
+      {
+        $unwind: "$user"
+      },
+      {
+        $sort: { "lastMessage.createdAt": -1 }
+      }
+    ]);
 
-    // For each user, get user info, last message, and unread count
-    const results = await Promise.all(userIds.map(async (userId) => {
-      const user = await User.findById(userId).select("_id username countryFlag verified");
-      if (!user) return null;
-
-      const lastMessage = await Message.findOne({
-        $or: [
-          { from: myId, to: userId },
-          { from: userId, to: myId }
-        ]
-      })
-        .sort({ createdAt: -1 })
-        .lean();
-
-      const unreadCount = await Message.countDocuments({
-        from: userId,
-        to: myId,
-        read: { $ne: true }
-      });
-
-      return {
-        user,
-        lastMessage,
-        unreadCount
-      };
-    }));
-
-    // Filter out any nulls (in case a user was deleted)
-    const filteredResults = results.filter(r => r && r.user);
-
-    res.json(filteredResults);
+    res.json(conversations);
   } catch (err) {
     console.error("Error in /api/message GET:", err);
     res.status(500).json({ error: "Server error" });
@@ -68,20 +86,35 @@ router.get("/:userId", requireAuth, async (req, res) => {
   try {
     const myId = req.user.id || req.user._id;
     const otherId = req.params.userId;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 100;
+    const skip = (page - 1) * limit;
+
     // Mark all messages from otherId to me as read
     await Message.updateMany(
       { from: otherId, to: myId, read: { $ne: true } },
       { $set: { read: true } }
     );
-    // Fetch all messages
+
+    // Fetch messages with pagination and lean queries
     const messages = await Message.find({
       $or: [
         { from: myId, to: otherId },
         { from: otherId, to: myId }
       ]
-    }).sort({ createdAt: 1 });
+    })
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean()
+    .exec();
+
+    // Reverse to show oldest first (since we sorted by newest first for pagination)
+    messages.reverse();
+    
     res.json(messages);
   } catch (err) {
+    console.error("Error fetching messages:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -99,6 +132,34 @@ router.post("/users", requireAuth, async (req, res) => {
     res.json(users);
   } catch (err) {
     console.error("Error in /api/message/users POST:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Get total unread conversation count
+router.get("/unread-count", requireAuth, async (req, res) => {
+  try {
+    const myId = req.user.id || req.user._id;
+    
+    // Count conversations with unread messages
+    const unreadConversations = await Message.aggregate([
+      {
+        $match: {
+          to: new mongoose.Types.ObjectId(myId),
+          read: { $ne: true }
+        }
+      },
+      {
+        $group: {
+          _id: "$from",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    res.json({ count: unreadConversations.length });
+  } catch (err) {
+    console.error("Error getting unread conversation count:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

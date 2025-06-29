@@ -5,7 +5,14 @@ const MessageSchema = new mongoose.Schema({
   to: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   text: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
-  read: { type: Boolean, default: false } // <-- Ensuring this field exists
+  read: { type: Boolean, default: false }
 });
+
+// Add indexes for better performance
+MessageSchema.index({ from: 1, to: 1 });
+MessageSchema.index({ to: 1, read: 1 });
+MessageSchema.index({ createdAt: -1 });
+MessageSchema.index({ from: 1, createdAt: -1 });
+MessageSchema.index({ to: 1, createdAt: -1 });
 
 module.exports = mongoose.model("Message", MessageSchema);
