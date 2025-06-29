@@ -8,7 +8,13 @@ const {
   addReply, 
   likeComment,    
   likeReply,
-  incrementPostViews    
+  incrementPostViews,
+  editPost,
+  deletePost,
+  editComment,
+  deleteComment,
+  editReply,
+  deleteReply  
 } = require("../controllers/postController");
 const auth = require("../middleware/auth");
 const Post = require("../models/Post");
@@ -36,7 +42,7 @@ router.post("/:postId/comments", auth, addComment);
 router.post("/:postId/comments/:commentId/replies", auth, addReply);
 
 // Increment post views
-router.post('/:id/view', incrementPostViews);
+router.post('/:postId/view', incrementPostViews);
 
 // Get posts by username (public profile)
 router.get("/user/:username", async (req, res) => {
@@ -61,5 +67,17 @@ router.get("/by-userid/:userId", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch user's posts" });
   }
 });
+
+// Edit and delete posts
+router.put("/:postId", auth, editPost);
+router.delete("/:postId", auth, deletePost);
+
+// Edit and delete comments
+router.put("/:postId/comments/:commentId", auth, editComment);
+router.delete("/:postId/comments/:commentId", auth, deleteComment);
+
+// Edit and delete replies
+router.put("/:postId/comments/:commentId/replies/:replyId", auth, editReply);
+router.delete("/:postId/comments/:commentId/replies/:replyId", auth, deleteReply);
 
 module.exports = router;

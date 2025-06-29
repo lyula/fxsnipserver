@@ -40,18 +40,20 @@ exports.getPosts = async (req, res) => {
   }
 };
 
-// Like a post
+// Like a post (with toggle functionality)
 exports.likePost = async (req, res) => {
   try {
     const { postId } = req.params;
     const post = await Post.findById(postId);
     if (!post) return res.status(404).json({ error: "Post not found" });
 
-    if (!post.likes.includes(req.user.id)) {
+    // Toggle like functionality
+    const userIndex = post.likes.indexOf(req.user.id);
+    if (userIndex === -1) {
+      // User hasn't liked this post yet, add like
       post.likes.push(req.user.id);
-      await post.save();
-
-      // Send notification to the post author
+      
+      // Send notification to the post author (only when liking, not unliking)
       if (post.author.toString() !== req.user.id) {
         await Notification.create({
           user: post.author,
@@ -61,9 +63,23 @@ exports.likePost = async (req, res) => {
           message: `${req.user.username} liked your post.`,
         });
       }
+    } else {
+      // User has already liked this post, remove like (unlike)
+      post.likes.splice(userIndex, 1);
     }
+
+    await post.save();
+
+    // Populate author fields for response
+    await post.populate([
+      { path: "author", select: "username verified" },
+      { path: "comments.author", select: "username verified" },
+      { path: "comments.replies.author", select: "username verified" }
+    ]);
+
     res.status(200).json(post);
   } catch (error) {
+    console.error("Error liking post:", error);
     res.status(500).json({ error: "Failed to like post" });
   }
 };
@@ -92,17 +108,11 @@ exports.addComment = async (req, res) => {
     }
 
     // Populate author for the last comment (the one just added)
-    await post
-      .populate("author", "username verified")
-      .populate({
-        path: "comments.author",
-        select: "username verified",
-      })
-      .populate({
-        path: "comments.replies.author",
-        select: "username verified",
-      })
-      .execPopulate();
+    await post.populate([
+      { path: "author", select: "username verified" },
+      { path: "comments.author", select: "username verified" },
+      { path: "comments.replies.author", select: "username verified" }
+    ]);
 
     res.status(201).json(post);
   } catch (error) {
@@ -120,11 +130,13 @@ exports.likeComment = async (req, res) => {
     const comment = post.comments.id(commentId);
     if (!comment) return res.status(404).json({ error: "Comment not found" });
 
-    if (!comment.likes.includes(req.user.id)) {
+    // Toggle like functionality
+    const userIndex = comment.likes.indexOf(req.user.id);
+    if (userIndex === -1) {
+      // User hasn't liked this comment yet, add like
       comment.likes.push(req.user.id);
-      await post.save();
-
-      // Send notification to the comment author
+      
+      // Send notification to the comment author (only when liking, not unliking)
       if (comment.author.toString() !== req.user.id) {
         await Notification.create({
           user: comment.author,
@@ -135,16 +147,23 @@ exports.likeComment = async (req, res) => {
           message: `${req.user.username} liked your comment on a post.`,
         });
       }
+    } else {
+      // User has already liked this comment, remove like (unlike)
+      comment.likes.splice(userIndex, 1);
     }
 
-    // Populate author fields for response
-    await post
-      .populate({ path: "comments.author", select: "username verified" })
-      .populate({ path: "comments.replies.author", select: "username verified" })
-      .execPopulate();
+    await post.save();
+
+    // Populate author fields for response using modern populate method
+    await post.populate([
+      { path: "comments.author", select: "username verified" },
+      { path: "comments.replies.author", select: "username verified" },
+      { path: "author", select: "username verified" }
+    ]);
 
     res.status(200).json(post);
   } catch (error) {
+    console.error("Error liking comment:", error);
     res.status(500).json({ error: "Failed to like comment" });
   }
 };
@@ -162,11 +181,13 @@ exports.likeReply = async (req, res) => {
     const reply = comment.replies.id(replyId);
     if (!reply) return res.status(404).json({ error: "Reply not found" });
 
-    if (!reply.likes.includes(req.user.id)) {
+    // Toggle like functionality
+    const userIndex = reply.likes.indexOf(req.user.id);
+    if (userIndex === -1) {
+      // User hasn't liked this reply yet, add like
       reply.likes.push(req.user.id);
-      await post.save();
-
-      // Send notification to the reply author
+      
+      // Send notification to the reply author (only when liking, not unliking)
       if (reply.author.toString() !== req.user.id) {
         await Notification.create({
           user: reply.author,
@@ -178,16 +199,23 @@ exports.likeReply = async (req, res) => {
           message: `${req.user.username} liked your reply on a post.`,
         });
       }
+    } else {
+      // User has already liked this reply, remove like (unlike)
+      reply.likes.splice(userIndex, 1);
     }
 
-    // Populate author fields for response
-    await post
-      .populate({ path: "comments.author", select: "username verified" })
-      .populate({ path: "comments.replies.author", select: "username verified" })
-      .execPopulate();
+    await post.save();
+
+    // Populate author fields for response using modern populate method
+    await post.populate([
+      { path: "comments.author", select: "username verified" },
+      { path: "comments.replies.author", select: "username verified" },
+      { path: "author", select: "username verified" }
+    ]);
 
     res.status(200).json(post);
   } catch (error) {
+    console.error("Error liking reply:", error);
     res.status(500).json({ error: "Failed to like reply" });
   }
 };
@@ -220,11 +248,12 @@ exports.addReply = async (req, res) => {
     }
 
     // Populate author fields for response
-    await post
-      .populate({ path: "comments.author", select: "username verified" })
-      .populate({ path: "comments.replies.author", select: "username verified" })
-      .execPopulate();
-
+    await post.populate([
+      { path: "comments.author", select: "username verified" },
+      { path: "comments.replies.author", select: "username verified" },
+      { path: "author", select: "username verified" }
+    ]);
+    
     res.status(201).json(post);
   } catch (error) {
     res.status(500).json({ error: "Failed to add reply" });
@@ -235,12 +264,16 @@ exports.addReply = async (req, res) => {
 exports.incrementPostViews = async (req, res) => {
   try {
     const post = await Post.findByIdAndUpdate(
-      req.params.id,
+      req.params.postId,
       { $inc: { views: 1 } },
       { new: true }
     );
+    if (!post) {
+      return res.status(404).json({ error: "Post not found" });
+    }
     res.json({ views: post.views });
   } catch (err) {
+    console.error("Error incrementing post views:", err);
     res.status(500).json({ error: "Failed to increment views" });
   }
 };
@@ -256,5 +289,219 @@ exports.getNotifications = async (req, res) => {
     res.json(notifications);
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch notifications" });
+  }
+};
+
+// Edit a post
+exports.editPost = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { content, image } = req.body;
+    
+    const post = await Post.findById(postId);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+    
+    // Check if user is the author
+    if (post.author.toString() !== req.user.id) {
+      return res.status(403).json({ error: "Not authorized to edit this post" });
+    }
+    
+    post.content = content;
+    if (image !== undefined) post.image = image;
+    post.updatedAt = new Date();
+    
+    await post.save();
+    
+    // Populate author fields for response
+    await post.populate([
+      { path: "author", select: "username verified" },
+      { path: "comments.author", select: "username verified" },
+      { path: "comments.replies.author", select: "username verified" }
+    ]);
+    
+    res.status(200).json(post);
+  } catch (error) {
+    console.error("Error editing post:", error);
+    res.status(500).json({ error: "Failed to edit post" });
+  }
+};
+
+// Delete a post
+exports.deletePost = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    
+    const post = await Post.findById(postId);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+    
+    // Check if user is the author
+    if (post.author.toString() !== req.user.id) {
+      return res.status(403).json({ error: "Not authorized to delete this post" });
+    }
+    
+    // Delete all notifications related to this post
+    await Notification.deleteMany({ post: postId });
+    
+    // Delete the post
+    await Post.findByIdAndDelete(postId);
+    
+    res.status(200).json({ message: "Post deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting post:", error);
+    res.status(500).json({ error: "Failed to delete post" });
+  }
+};
+
+// Edit a comment
+exports.editComment = async (req, res) => {
+  try {
+    const { postId, commentId } = req.params;
+    const { content } = req.body;
+    
+    const post = await Post.findById(postId);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+    
+    const comment = post.comments.id(commentId);
+    if (!comment) return res.status(404).json({ error: "Comment not found" });
+    
+    // Check if user is the comment author
+    if (comment.author.toString() !== req.user.id) {
+      return res.status(403).json({ error: "Not authorized to edit this comment" });
+    }
+    
+    comment.content = content;
+    comment.updatedAt = new Date();
+    
+    await post.save();
+    
+    // Populate author fields for response
+    await post.populate([
+      { path: "comments.author", select: "username verified" },
+      { path: "comments.replies.author", select: "username verified" },
+      { path: "author", select: "username verified" }
+    ]);
+    
+    res.status(200).json(post);
+  } catch (error) {
+    console.error("Error editing comment:", error);
+    res.status(500).json({ error: "Failed to edit comment" });
+  }
+};
+
+// Delete a comment
+exports.deleteComment = async (req, res) => {
+  try {
+    const { postId, commentId } = req.params;
+    
+    const post = await Post.findById(postId);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+    
+    const comment = post.comments.id(commentId);
+    if (!comment) return res.status(404).json({ error: "Comment not found" });
+    
+    // Check if user is the comment author or post author
+    if (comment.author.toString() !== req.user.id && post.author.toString() !== req.user.id) {
+      return res.status(403).json({ error: "Not authorized to delete this comment" });
+    }
+    
+    // Delete all notifications related to this comment
+    await Notification.deleteMany({ comment: commentId });
+    
+    // Remove the comment
+    post.comments.pull(commentId);
+    await post.save();
+    
+    // Populate author fields for response
+    await post.populate([
+      { path: "comments.author", select: "username verified" },
+      { path: "comments.replies.author", select: "username verified" },
+      { path: "author", select: "username verified" }
+    ]);
+    
+    res.status(200).json(post);
+  } catch (error) {
+    console.error("Error deleting comment:", error);
+    res.status(500).json({ error: "Failed to delete comment" });
+  }
+};
+
+// Edit a reply
+exports.editReply = async (req, res) => {
+  try {
+    const { postId, commentId, replyId } = req.params;
+    const { content } = req.body;
+    
+    const post = await Post.findById(postId);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+    
+    const comment = post.comments.id(commentId);
+    if (!comment) return res.status(404).json({ error: "Comment not found" });
+    
+    const reply = comment.replies.id(replyId);
+    if (!reply) return res.status(404).json({ error: "Reply not found" });
+    
+    // Check if user is the reply author
+    if (reply.author.toString() !== req.user.id) {
+      return res.status(403).json({ error: "Not authorized to edit this reply" });
+    }
+    
+    reply.content = content;
+    reply.updatedAt = new Date();
+    
+    await post.save();
+    
+    // Populate author fields for response
+    await post.populate([
+      { path: "comments.author", select: "username verified" },
+      { path: "comments.replies.author", select: "username verified" },
+      { path: "author", select: "username verified" }
+    ]);
+    
+    res.status(200).json(post);
+  } catch (error) {
+    console.error("Error editing reply:", error);
+    res.status(500).json({ error: "Failed to edit reply" });
+  }
+};
+
+// Delete a reply
+exports.deleteReply = async (req, res) => {
+  try {
+    const { postId, commentId, replyId } = req.params;
+    
+    const post = await Post.findById(postId);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+    
+    const comment = post.comments.id(commentId);
+    if (!comment) return res.status(404).json({ error: "Comment not found" });
+    
+    const reply = comment.replies.id(replyId);
+    if (!reply) return res.status(404).json({ error: "Reply not found" });
+    
+    // Check if user is the reply author, comment author, or post author
+    if (reply.author.toString() !== req.user.id && 
+        comment.author.toString() !== req.user.id && 
+        post.author.toString() !== req.user.id) {
+      return res.status(403).json({ error: "Not authorized to delete this reply" });
+    }
+    
+    // Delete all notifications related to this reply
+    await Notification.deleteMany({ reply: replyId });
+    
+    // Remove the reply
+    comment.replies.pull(replyId);
+    await post.save();
+    
+    // Populate author fields for response
+    await post.populate([
+      { path: "comments.author", select: "username verified" },
+      { path: "comments.replies.author", select: "username verified" },
+      { path: "author", select: "username verified" }
+    ]);
+    
+    res.status(200).json(post);
+  } catch (error) {
+    console.error("Error deleting reply:", error);
+    res.status(500).json({ error: "Failed to delete reply" });
   }
 };
