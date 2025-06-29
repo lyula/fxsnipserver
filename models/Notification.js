@@ -12,6 +12,7 @@ const notificationSchema = new mongoose.Schema(
         "like_reply",
         "comment",
         "reply",
+        "follow",
       ],
       required: true,
     },
@@ -25,3 +26,11 @@ const notificationSchema = new mongoose.Schema(
 );
 
 module.exports = mongoose.model("Notification", notificationSchema);
+
+await Notification.create({
+  user: targetId,
+  type: "follow",
+  message: `${user.username} followed you`,  // <- Changed from "text" to "message"
+  from: userId,
+  read: false,
+});

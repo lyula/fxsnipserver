@@ -85,7 +85,7 @@ router.post("/follow/:id", requireAuth, async (req, res) => {
   await Notification.create({
     user: targetId,
     type: "follow",
-    text: `${user.username} followed you`,
+   message: `${user.username} followed you`,
     from: userId,
     read: false,
   });
