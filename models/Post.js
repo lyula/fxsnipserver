@@ -31,6 +31,7 @@ const PostSchema = new mongoose.Schema(
   {
     content: String,
     image: String,
+    video: String, // Added this line for video URLs
     author: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     comments: [CommentSchema],
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],

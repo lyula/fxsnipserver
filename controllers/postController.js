@@ -4,10 +4,11 @@ const Notification = require("../models/Notification");
 // Create a new post
 exports.createPost = async (req, res) => {
   try {
-    const { content, image } = req.body;
+    const { content, image, video } = req.body;  // Add video to destructuring
     const post = new Post({
       content,
       image,
+      video,  // Add video field
       author: req.user.id,
       comments: [],
       likes: [],
