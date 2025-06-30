@@ -22,7 +22,7 @@ exports.createPost = async (req, res) => {
   }
 };
 
-// Enhanced Get Posts with Infinite Scroll, Fresh Content Priority, and Load Fresh Posts
+// Enhanced Get Posts with Fresh Content that targets unseen posts from today
 exports.getPosts = async (req, res) => {
   try {
     const { 
@@ -30,25 +30,61 @@ exports.getPosts = async (req, res) => {
       offset = 0,
       scrollDirection = 'down',
       refreshFeed = false,
-      loadFresh = false  // New parameter for fresh content loading
+      loadFresh = false,
+      timestamp,
+      cacheBust
     } = req.query;
 
     const userId = req.user?.id;
     const limitNum = parseInt(limit);
     const offsetNum = parseInt(offset);
 
-    // Get all posts with populated fields
-    const posts = await Post.find()
-      .populate("author", "username verified")
+    // Get user's viewing history from the last session (you might want to store this in DB)
+    // For now, we'll use time-based logic
+    
+    let query = {};
+    let sortOptions = { createdAt: -1 };
+
+    // FRESH CONTENT LOGIC: Get posts from the last few hours to the current day
+    if (loadFresh === 'true' || scrollDirection === 'fresh') {
+      console.log('Loading fresh content: posts from the last few minutes to today');
+      
+      // Get posts from the last 4 hours (recent) and today (might have missed)
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+      
+      // Priority 1: Posts from last 4 hours (very fresh)
+      // Priority 2: Posts from today that user might have missed
+      query = {
+        createdAt: { 
+          $gte: startOfToday // All posts from today
+        }
+      };
+      
+      // Enhanced sort for fresh content
+      sortOptions = { 
+        createdAt: -1, // Newest first
+        views: 1       // Lower view count first (less seen posts)
+      };
+    }
+
+    // Get posts with populated fields
+    const posts = await Post.find(query)
+      .populate("author", "username verified countryFlag")
       .populate({
-        path: "comments.author",
-        select: "username verified",
+        path: "comments",
+        populate: {
+          path: "author",
+          select: "username verified"
+        }
       })
       .populate({
-        path: "comments.replies.author",
-        select: "username verified",
+        path: "comments.replies.author", 
+        select: "username verified"
       })
-      .sort({ createdAt: -1 });
+      .sort(sortOptions)
+      .lean(); // Use lean for better performance
 
     if (!posts || posts.length === 0) {
       return res.status(200).json({
@@ -62,159 +98,147 @@ exports.getPosts = async (req, res) => {
           completedCycles: 0,
           positionInCurrentCycle: 0,
           totalPostsInCycle: 0,
-          isRepeatingContent: false
+          isRepeatingContent: false,
+          freshContentLoaded: loadFresh === 'true'
         }
       });
     }
 
-    // Calculate engagement and add status for each post
+    // Calculate time-based metrics for each post
+    const now = new Date();
     const enrichedPosts = posts.map(post => {
-      const postObj = post.toObject ? post.toObject() : post;
+      const postAge = (now - new Date(post.createdAt)) / (1000 * 60); // age in minutes
+      const hoursSincePost = postAge / 60;
       
-      // Safely calculate engagement metrics
-      const likesCount = Array.isArray(postObj.likes) ? postObj.likes.length : 0;
-      const commentsCount = Array.isArray(postObj.comments) ? postObj.comments.length : 0;
-      const repliesCount = Array.isArray(postObj.comments) 
-        ? postObj.comments.reduce((total, comment) => 
-            total + (Array.isArray(comment.replies) ? comment.replies.length : 0), 0)
-        : 0;
-      const totalEngagement = likesCount + commentsCount + repliesCount;
+      // Calculate engagement metrics
+      const likesCount = Array.isArray(post.likes) ? post.likes.length : 0;
+      const commentsCount = Array.isArray(post.comments) ? post.comments.length : 0;
+      const viewsCount = post.views || 0;
+      const totalEngagement = likesCount + commentsCount;
       
-      // Calculate time factors
-      const now = new Date();
-      const postAge = (now - new Date(postObj.createdAt)) / (1000 * 60 * 60); // hours
-      const velocity = totalEngagement / Math.max(postAge, 0.1);
+      // Fresh content scoring
+      let freshScore = 0;
       
-      // Determine post status
-      let postStatus = null;
-      if (velocity >= 5 && postAge <= 24) {
-        postStatus = 'trending';
-      } else if (totalEngagement >= 20 && postAge <= 6) {
-        postStatus = 'hot';
-      } else if (totalEngagement >= 50 && velocity >= 10) {
-        postStatus = 'viral';
+      if (loadFresh === 'true') {
+        // Score based on recency and engagement
+        if (postAge < 30) { // Last 30 minutes
+          freshScore = 100 + totalEngagement * 2; // Highest priority
+        } else if (postAge < 120) { // Last 2 hours  
+          freshScore = 80 + totalEngagement * 1.5;
+        } else if (postAge < 360) { // Last 6 hours
+          freshScore = 60 + totalEngagement;
+        } else { // Rest of today
+          freshScore = 40 + totalEngagement * 0.5;
+        }
+        
+        // Boost posts with lower view counts (likely unseen)
+        if (viewsCount < 10) freshScore += 20;
+        if (viewsCount < 5) freshScore += 30;
       }
       
       return {
-        ...postObj,
-        postStatus,
+        ...post,
+        _postAgeMinutes: postAge,
+        _postAgeHours: hoursSincePost,
+        _freshScore: freshScore,
         _engagement: totalEngagement,
-        _velocity: velocity,
-        _postAge: postAge
+        _views: viewsCount
       };
     });
 
-    // Apply intelligent sorting for different scenarios
     let sortedPosts;
     
     if (loadFresh === 'true') {
-      // FRESH CONTENT REQUEST: Prioritize very recent posts with high engagement
+      console.log(`Processing ${enrichedPosts.length} posts for fresh content`);
+      
+      // Sort by fresh score (prioritizes recent + unseen posts)
       sortedPosts = enrichedPosts.sort((a, b) => {
-        // Heavy weight on recency for fresh content
-        const freshScoreA = (
-          ((24 - Math.min(a._postAge, 24)) * 0.8) +  // 80% weight on recency
-          (a._engagement * 0.2)                       // 20% weight on engagement
-        );
-        const freshScoreB = (
-          ((24 - Math.min(b._postAge, 24)) * 0.8) +
-          (b._engagement * 0.2)
-        );
-        
-        // Additional boost for posts less than 2 hours old
-        const recentBoostA = a._postAge < 2 ? 10 : 0;
-        const recentBoostB = b._postAge < 2 ? 10 : 0;
-        
-        return (freshScoreB + recentBoostB) - (freshScoreA + recentBoostA);
+        return b._freshScore - a._freshScore;
       });
       
-      // For fresh content, only return the most recent posts (no cycling)
-      const freshPosts = sortedPosts.slice(0, limitNum).map((post, index) => ({
+      // Get the requested slice
+      const freshPosts = sortedPosts.slice(offsetNum, offsetNum + limitNum).map((post, index) => ({
         ...post,
-        _scrollPosition: index,
+        _scrollPosition: offsetNum + index,
         _isFreshContent: true
       }));
       
+      // Count truly fresh posts (last 2 hours)
+      const recentFreshCount = sortedPosts.filter(p => p._postAgeHours < 2).length;
+      
+      console.log(`Returning ${freshPosts.length} fresh posts, ${recentFreshCount} from last 2 hours`);
+      
       return res.status(200).json({
         posts: freshPosts,
-        hasMore: freshPosts.length === limitNum,
+        hasMore: (offsetNum + limitNum) < sortedPosts.length,
         totalAvailablePosts: sortedPosts.length,
-        nextOffset: limitNum,
-        scrollDirection: 'up',
-        freshContentCount: sortedPosts.filter(p => p._postAge < 2).length,
+        nextOffset: offsetNum + limitNum,
+        scrollDirection: 'down',
+        freshContentCount: recentFreshCount,
         cyclingInfo: {
           completedCycles: 0,
-          positionInCurrentCycle: 0,
+          positionInCurrentCycle: offsetNum,
           totalPostsInCycle: sortedPosts.length,
           isRepeatingContent: false,
-          freshContentLoaded: true
+          freshContentLoaded: true,
+          postsFromToday: sortedPosts.length
         }
       });
       
     } else if (refreshFeed === 'true' || offsetNum === 0) {
       // Regular refresh: balanced fresh and engaging content
       sortedPosts = enrichedPosts.sort((a, b) => {
-        const scoreA = (a._engagement * 0.4) + ((24 - Math.min(a._postAge, 24)) * 0.6);
-        const scoreB = (b._engagement * 0.4) + ((24 - Math.min(b._postAge, 24)) * 0.6);
+        const scoreA = (a._engagement * 0.4) + ((24 - Math.min(a._postAgeHours, 24)) * 0.6);
+        const scoreB = (b._engagement * 0.4) + ((24 - Math.min(b._postAgeHours, 24)) * 0.6);
         return scoreB - scoreA;
       });
     } else {
-      // Infinite scroll: ensure variety with some randomization based on offset
+      // Infinite scroll: ensure variety
       sortedPosts = enrichedPosts.sort((a, b) => {
-        const scoreA = (a._engagement * 0.6) + ((24 - Math.min(a._postAge, 24)) * 0.4);
-        const scoreB = (b._engagement * 0.6) + ((24 - Math.min(b._postAge, 24)) * 0.4);
-        
-        // Add offset-based variation to prevent same order every time
-        const offsetVariationA = ((a._id?.toString().charCodeAt(0) || 0) + offsetNum) % 100;
-        const offsetVariationB = ((b._id?.toString().charCodeAt(0) || 0) + offsetNum) % 100;
-        
-        return (scoreB + offsetVariationB * 0.01) - (scoreA + offsetVariationA * 0.01);
+        const scoreA = (a._engagement * 0.6) + ((24 - Math.min(a._postAgeHours, 24)) * 0.4);
+        const scoreB = (b._engagement * 0.6) + ((24 - Math.min(b._postAgeHours, 24)) * 0.4);
+        return scoreB - scoreA;
       });
     }
 
-    // Implement true cycling for infinite scroll (never-ending feed)
+    // Regular pagination for non-fresh content
     const totalPosts = sortedPosts.length;
     const paginatedPosts = [];
     
-    // Always ensure we have posts to cycle through
     if (totalPosts > 0) {
       for (let i = 0; i < limitNum; i++) {
-        // Use modulo to cycle through posts infinitely
-        const cycleIndex = (offsetNum + i) % totalPosts;
-        const selectedPost = { ...sortedPosts[cycleIndex] };
-        
-        // Add unique scroll position identifier to prevent flickering
-        selectedPost._scrollPosition = offsetNum + i;
-        selectedPost._cycleIndex = cycleIndex;
-        
-        paginatedPosts.push(selectedPost);
+        const index = offsetNum + i;
+        if (index < totalPosts) {
+          const selectedPost = { ...sortedPosts[index] };
+          selectedPost._scrollPosition = index;
+          paginatedPosts.push(selectedPost);
+        }
       }
     }
 
-    // Calculate if we've completed full cycles (for UI indicators)
-    const completedCycles = Math.floor(offsetNum / totalPosts);
-    const positionInCurrentCycle = offsetNum % totalPosts;
+    const hasMore = (offsetNum + limitNum) < totalPosts;
+    const completedCycles = Math.floor(offsetNum / Math.max(totalPosts, 1));
 
     res.status(200).json({
       posts: paginatedPosts,
-      hasMore: true, // Always true for infinite cycling
+      hasMore,
       totalAvailablePosts: totalPosts,
       nextOffset: offsetNum + limitNum,
       scrollDirection,
-      freshContentCount: enrichedPosts.filter(p => p._postAge < 2).length,
-      // Additional cycling info for frontend
+      freshContentCount: 0,
       cyclingInfo: {
         completedCycles,
-        positionInCurrentCycle,
+        positionInCurrentCycle: offsetNum % Math.max(totalPosts, 1),
         totalPostsInCycle: totalPosts,
         isRepeatingContent: completedCycles > 0
       }
     });
 
   } catch (error) {
-    console.error("Error fetching posts:", error);
+    console.error("Error in getPosts:", error);
     res.status(500).json({ 
-      error: "Failed to fetch posts", 
-      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      error: "Failed to fetch posts",
+      details: error.message
     });
   }
 };
