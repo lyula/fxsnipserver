@@ -201,23 +201,32 @@ exports.getPosts = async (req, res) => {
       });
     }
 
-    // Regular pagination for non-fresh content
+    // Enhanced pagination with proper cycling support
     const totalPosts = sortedPosts.length;
     const paginatedPosts = [];
-    
+
     if (totalPosts > 0) {
       for (let i = 0; i < limitNum; i++) {
-        const index = offsetNum + i;
+        let index = offsetNum + i;
+        
+        // Implement cycling: if we exceed total posts, wrap around
+        if (index >= totalPosts) {
+          index = index % totalPosts;
+        }
+        
         if (index < totalPosts) {
           const selectedPost = { ...sortedPosts[index] };
-          selectedPost._scrollPosition = index;
+          selectedPost._scrollPosition = offsetNum + i;
+          selectedPost._cycledPosition = index;
           paginatedPosts.push(selectedPost);
         }
       }
     }
 
-    const hasMore = (offsetNum + limitNum) < totalPosts;
+    // Always have more content available through cycling
+    const hasMore = totalPosts > 0; // Always true if we have posts (cycling)
     const completedCycles = Math.floor(offsetNum / Math.max(totalPosts, 1));
+    const isRepeatingContent = completedCycles > 0;
 
     res.status(200).json({
       posts: paginatedPosts,
@@ -230,7 +239,7 @@ exports.getPosts = async (req, res) => {
         completedCycles,
         positionInCurrentCycle: offsetNum % Math.max(totalPosts, 1),
         totalPostsInCycle: totalPosts,
-        isRepeatingContent: completedCycles > 0
+        isRepeatingContent
       }
     });
 
