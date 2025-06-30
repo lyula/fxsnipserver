@@ -25,6 +25,9 @@ router.get("/", requireAuth, async (req, res) => {
         }
       },
       {
+        $sort: { createdAt: 1 } // Sort messages chronologically first
+      },
+      {
         $addFields: {
           otherUser: {
             $cond: [
@@ -38,7 +41,7 @@ router.get("/", requireAuth, async (req, res) => {
       {
         $group: {
           _id: "$otherUser",
-          lastMessage: { $last: "$$ROOT" },
+          lastMessage: { $last: "$$ROOT" }, // Now this will be the actual last message
           unreadCount: {
             $sum: {
               $cond: [
@@ -52,7 +55,9 @@ router.get("/", requireAuth, async (req, res) => {
                 0
               ]
             }
-          }
+          },
+          // Add total message count for debugging
+          totalMessages: { $sum: 1 }
         }
       },
       {
@@ -70,9 +75,22 @@ router.get("/", requireAuth, async (req, res) => {
         $unwind: "$user"
       },
       {
-        $sort: { "lastMessage.createdAt": -1 }
+        $sort: { "lastMessage.createdAt": -1 } // Sort conversations by last message time
       }
     ]);
+
+    // Debug log to check the data structure
+    console.log("Conversations fetched:", conversations.length);
+    if (conversations.length > 0) {
+      console.log("Sample conversation:", {
+        user: conversations[0].user.username,
+        lastMessageText: conversations[0].lastMessage?.text,
+        lastMessageFrom: conversations[0].lastMessage?.from,
+        lastMessageTo: conversations[0].lastMessage?.to,
+        createdAt: conversations[0].lastMessage?.createdAt,
+        totalMessages: conversations[0].totalMessages
+      });
+    }
 
     res.json(conversations);
   } catch (err) {
