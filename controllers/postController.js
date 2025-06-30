@@ -21,9 +21,17 @@ exports.createPost = async (req, res) => {
   }
 };
 
-// Get all posts
+// Enhanced Get Posts with Viral Algorithm
 exports.getPosts = async (req, res) => {
   try {
+    const { 
+      algorithm = 'viral', // 'viral', 'recent', 'trending', 'random'
+      limit = 20,
+      offset = 0,
+      refreshFeed = false // Force refresh with new randomization
+    } = req.query;
+
+    // Get all posts with populated fields
     const posts = await Post.find()
       .populate("author", "username verified")
       .populate({
@@ -34,11 +42,131 @@ exports.getPosts = async (req, res) => {
         path: "comments.replies.author",
         select: "username verified",
       });
-    res.status(200).json(posts);
+
+    // Calculate engagement scores and apply viral algorithm
+    const rankedPosts = calculateViralScore(posts, algorithm, refreshFeed);
+    
+    // Apply pagination
+    const paginatedPosts = rankedPosts.slice(offset, offset + parseInt(limit));
+    
+    res.status(200).json({
+      posts: paginatedPosts,
+      totalPosts: rankedPosts.length,
+      hasMore: (offset + parseInt(limit)) < rankedPosts.length,
+      algorithm: algorithm
+    });
   } catch (error) {
+    console.error("Error fetching posts:", error);
     res.status(500).json({ error: "Failed to fetch posts" });
   }
 };
+
+// Viral Algorithm Implementation
+function calculateViralScore(posts, algorithm, refreshFeed) {
+  const now = new Date();
+  
+  const scoredPosts = posts.map(post => {
+    // Calculate basic engagement metrics
+    const likesCount = post.likes ? post.likes.length : 0;
+    const commentsCount = post.comments ? post.comments.length : 0;
+    const repliesCount = post.comments 
+      ? post.comments.reduce((total, comment) => 
+          total + (comment.replies ? comment.replies.length : 0), 0)
+      : 0;
+    const viewsCount = post.views || 0;
+    
+    // Calculate total engagement
+    const totalEngagement = likesCount + commentsCount + repliesCount;
+    
+    // Time-based factors
+    const postAge = (now - new Date(post.createdAt)) / (1000 * 60 * 60); // hours
+    const recentActivity = (now - new Date(post.updatedAt)) / (1000 * 60 * 60); // hours
+    
+    // Viral Score Components
+    const engagementScore = (likesCount * 1) + (commentsCount * 2) + (repliesCount * 1.5);
+    const velocityScore = totalEngagement / Math.max(postAge, 0.1); // engagement per hour
+    const freshnessScore = Math.max(0, 24 - postAge) / 24; // newer posts get higher score
+    const viralityScore = calculateViralityMultiplier(totalEngagement, postAge);
+    const viewRatio = viewsCount > 0 ? totalEngagement / viewsCount : 0;
+    
+    // Random factor for feed diversity (changes on refresh)
+    const randomFactor = refreshFeed === 'true' ? Math.random() : 
+      ((post._id.toString().charCodeAt(0) + post._id.toString().charCodeAt(1)) % 100) / 100;
+    
+    let finalScore = 0;
+    
+    switch (algorithm) {
+      case 'viral':
+        finalScore = (
+          (engagementScore * 0.3) +
+          (velocityScore * 0.25) +
+          (viralityScore * 0.25) +
+          (freshnessScore * 0.1) +
+          (viewRatio * 100 * 0.05) +
+          (randomFactor * 0.05)
+        );
+        break;
+        
+      case 'trending':
+        finalScore = (velocityScore * 0.5) + (engagementScore * 0.3) + (freshnessScore * 0.2);
+        break;
+        
+      case 'recent':
+        finalScore = (freshnessScore * 0.7) + (engagementScore * 0.2) + (randomFactor * 0.1);
+        break;
+        
+      case 'random':
+        finalScore = randomFactor + (engagementScore * 0.1);
+        break;
+        
+      default:
+        finalScore = engagementScore;
+    }
+    
+    return {
+      ...post.toObject(),
+      _viralScore: finalScore,
+      _engagement: totalEngagement,
+      _velocity: velocityScore,
+      _virality: viralityScore
+    };
+  });
+  
+  // Sort by viral score (highest first)
+  return scoredPosts.sort((a, b) => b._viralScore - a._viralScore);
+}
+
+// Calculate virality multiplier based on engagement patterns
+function calculateViralityMultiplier(engagement, ageInHours) {
+  if (ageInHours < 1) {
+    // Very new posts: high engagement = viral potential
+    if (engagement >= 20) return 3.0;
+    if (engagement >= 10) return 2.5;
+    if (engagement >= 5) return 2.0;
+    return 1.0;
+  } else if (ageInHours < 6) {
+    // Recent posts: sustained engagement
+    if (engagement >= 50) return 2.8;
+    if (engagement >= 25) return 2.3;
+    if (engagement >= 10) return 1.8;
+    return 1.0;
+  } else if (ageInHours < 24) {
+    // Day-old posts: exceptional engagement needed
+    if (engagement >= 100) return 2.5;
+    if (engagement >= 50) return 2.0;
+    if (engagement >= 25) return 1.5;
+    return 0.8;
+  } else if (ageInHours < 72) {
+    // Older posts: only truly viral content resurfaces
+    if (engagement >= 200) return 2.0;
+    if (engagement >= 100) return 1.5;
+    return 0.5;
+  } else {
+    // Very old posts: rare resurface
+    if (engagement >= 500) return 1.2;
+    return 0.2;
+  }
+}
 
 // Like a post (with toggle functionality)
 exports.likePost = async (req, res) => {
