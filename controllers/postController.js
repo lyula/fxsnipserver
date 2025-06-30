@@ -21,14 +21,15 @@ exports.createPost = async (req, res) => {
   }
 };
 
-// Enhanced Get Posts with Infinite Scroll and Fresh Content Priority
+// Enhanced Get Posts with Infinite Scroll, Fresh Content Priority, and Load Fresh Posts
 exports.getPosts = async (req, res) => {
   try {
     const { 
       limit = 20,
       offset = 0,
       scrollDirection = 'down',
-      refreshFeed = false
+      refreshFeed = false,
+      loadFresh = false  // New parameter for fresh content loading
     } = req.query;
 
     const userId = req.user?.id;
@@ -55,7 +56,13 @@ exports.getPosts = async (req, res) => {
         totalAvailablePosts: 0,
         nextOffset: offsetNum,
         scrollDirection,
-        freshContentCount: 0
+        freshContentCount: 0,
+        cyclingInfo: {
+          completedCycles: 0,
+          positionInCurrentCycle: 0,
+          totalPostsInCycle: 0,
+          isRepeatingContent: false
+        }
       });
     }
 
@@ -96,41 +103,110 @@ exports.getPosts = async (req, res) => {
       };
     });
 
-    // Apply intelligent sorting for infinite scroll
+    // Apply intelligent sorting for different scenarios
     let sortedPosts;
-    if (refreshFeed === 'true' || offsetNum === 0) {
-      // Fresh load: prioritize fresh and engaging content
+    
+    if (loadFresh === 'true') {
+      // FRESH CONTENT REQUEST: Prioritize very recent posts with high engagement
       sortedPosts = enrichedPosts.sort((a, b) => {
-        // Prioritize fresh posts and high engagement
+        // Heavy weight on recency for fresh content
+        const freshScoreA = (
+          ((24 - Math.min(a._postAge, 24)) * 0.8) +  // 80% weight on recency
+          (a._engagement * 0.2)                       // 20% weight on engagement
+        );
+        const freshScoreB = (
+          ((24 - Math.min(b._postAge, 24)) * 0.8) +
+          (b._engagement * 0.2)
+        );
+        
+        // Additional boost for posts less than 2 hours old
+        const recentBoostA = a._postAge < 2 ? 10 : 0;
+        const recentBoostB = b._postAge < 2 ? 10 : 0;
+        
+        return (freshScoreB + recentBoostB) - (freshScoreA + recentBoostA);
+      });
+      
+      // For fresh content, only return the most recent posts (no cycling)
+      const freshPosts = sortedPosts.slice(0, limitNum).map((post, index) => ({
+        ...post,
+        _scrollPosition: index,
+        _isFreshContent: true
+      }));
+      
+      return res.status(200).json({
+        posts: freshPosts,
+        hasMore: freshPosts.length === limitNum,
+        totalAvailablePosts: sortedPosts.length,
+        nextOffset: limitNum,
+        scrollDirection: 'up',
+        freshContentCount: sortedPosts.filter(p => p._postAge < 2).length,
+        cyclingInfo: {
+          completedCycles: 0,
+          positionInCurrentCycle: 0,
+          totalPostsInCycle: sortedPosts.length,
+          isRepeatingContent: false,
+          freshContentLoaded: true
+        }
+      });
+      
+    } else if (refreshFeed === 'true' || offsetNum === 0) {
+      // Regular refresh: balanced fresh and engaging content
+      sortedPosts = enrichedPosts.sort((a, b) => {
         const scoreA = (a._engagement * 0.4) + ((24 - Math.min(a._postAge, 24)) * 0.6);
         const scoreB = (b._engagement * 0.4) + ((24 - Math.min(b._postAge, 24)) * 0.6);
         return scoreB - scoreA;
       });
     } else {
-      // Infinite scroll: ensure variety
+      // Infinite scroll: ensure variety with some randomization based on offset
       sortedPosts = enrichedPosts.sort((a, b) => {
         const scoreA = (a._engagement * 0.6) + ((24 - Math.min(a._postAge, 24)) * 0.4);
         const scoreB = (b._engagement * 0.6) + ((24 - Math.min(b._postAge, 24)) * 0.4);
-        return scoreB - scoreA;
+        
+        // Add offset-based variation to prevent same order every time
+        const offsetVariationA = ((a._id?.toString().charCodeAt(0) || 0) + offsetNum) % 100;
+        const offsetVariationB = ((b._id?.toString().charCodeAt(0) || 0) + offsetNum) % 100;
+        
+        return (scoreB + offsetVariationB * 0.01) - (scoreA + offsetVariationA * 0.01);
       });
     }
 
-    // Implement cycling for infinite scroll (never-ending feed)
+    // Implement true cycling for infinite scroll (never-ending feed)
     const totalPosts = sortedPosts.length;
     const paginatedPosts = [];
     
-    for (let i = 0; i < limitNum && totalPosts > 0; i++) {
-      const index = (offsetNum + i) % totalPosts;
-      paginatedPosts.push(sortedPosts[index]);
+    // Always ensure we have posts to cycle through
+    if (totalPosts > 0) {
+      for (let i = 0; i < limitNum; i++) {
+        // Use modulo to cycle through posts infinitely
+        const cycleIndex = (offsetNum + i) % totalPosts;
+        const selectedPost = { ...sortedPosts[cycleIndex] };
+        
+        // Add unique scroll position identifier to prevent flickering
+        selectedPost._scrollPosition = offsetNum + i;
+        selectedPost._cycleIndex = cycleIndex;
+        
+        paginatedPosts.push(selectedPost);
+      }
     }
+
+    // Calculate if we've completed full cycles (for UI indicators)
+    const completedCycles = Math.floor(offsetNum / totalPosts);
+    const positionInCurrentCycle = offsetNum % totalPosts;
 
     res.status(200).json({
       posts: paginatedPosts,
-      hasMore: totalPosts > 0, // Always true if there are posts for infinite scroll
+      hasMore: true, // Always true for infinite cycling
       totalAvailablePosts: totalPosts,
       nextOffset: offsetNum + limitNum,
       scrollDirection,
-      freshContentCount: enrichedPosts.filter(p => p._postAge < 2).length
+      freshContentCount: enrichedPosts.filter(p => p._postAge < 2).length,
+      // Additional cycling info for frontend
+      cyclingInfo: {
+        completedCycles,
+        positionInCurrentCycle,
+        totalPostsInCycle: totalPosts,
+        isRepeatingContent: completedCycles > 0
+      }
     });
 
   } catch (error) {
