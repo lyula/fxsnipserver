@@ -24,7 +24,7 @@ const User = require("../models/User");
 router.post("/", auth, createPost);
 
 // Get all posts
-router.get("/", getPosts);
+router.get("/", auth, getPosts);
 
 // Like a post
 router.post("/:postId/like", auth, likePost);
