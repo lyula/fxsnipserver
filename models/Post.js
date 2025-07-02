@@ -30,8 +30,10 @@ const CommentSchema = new mongoose.Schema(
 const PostSchema = new mongoose.Schema(
   {
     content: String,
-    image: String,
-    video: String, // Added this line for video URLs
+    image: { type: String },
+    imagePublicId: { type: String },
+    video: { type: String },
+    videoPublicId: { type: String },
     author: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     comments: [CommentSchema],
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],

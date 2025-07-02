@@ -1,14 +1,23 @@
 const Post = require("../models/Post");
 const Notification = require("../models/Notification");
+const cloudinary = require('cloudinary').v2;
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 // Create a new post
 exports.createPost = async (req, res) => {
   try {
-    const { content, image, video } = req.body;  // Add video to destructuring
+    const { content, image, imagePublicId, video, videoPublicId } = req.body;  // Add video to destructuring
     const post = new Post({
       content,
       image,
-      video,  // Add video field
+      imagePublicId,
+      video,
+      videoPublicId,  // Add video field
       author: req.user.id,
       comments: [],
       likes: [],
@@ -543,22 +552,25 @@ exports.editPost = async (req, res) => {
 exports.deletePost = async (req, res) => {
   try {
     const { postId } = req.params;
-    
     const post = await Post.findById(postId);
     if (!post) return res.status(404).json({ error: "Post not found" });
-    
-    // Check if user is the author
+
     if (post.author.toString() !== req.user.id) {
       return res.status(403).json({ error: "Not authorized to delete this post" });
     }
-    
-    // Delete all notifications related to this post
+
+    // Delete media from Cloudinary if present
+    if (post.imagePublicId) {
+      await cloudinary.uploader.destroy(post.imagePublicId, { resource_type: "image" });
+    }
+    if (post.videoPublicId) {
+      await cloudinary.uploader.destroy(post.videoPublicId, { resource_type: "video" });
+    }
+
     await Notification.deleteMany({ post: postId });
-    
-    // Delete the post
     await Post.findByIdAndDelete(postId);
-    
-    res.status(200).json({ message: "Post deleted successfully" });
+
+    res.status(200).json({ message: "Post and media deleted successfully" });
   } catch (error) {
     console.error("Error deleting post:", error);
     res.status(500).json({ error: "Failed to delete post" });
