@@ -29,6 +29,11 @@ router.put("/profile", requireAuth, async (req, res) => {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    // Check if nothing has changed
+    if (username === user.username && email === user.email) {
+      return res.status(400).json({ message: "No changes to save." });
+    }
+
     // Username validation (same as registration)
     if (username && username !== user.username) {
       const usernameRegex = /^(?!.*[_.]{2})[a-zA-Z0-9](?!.*[_.]{2})[a-zA-Z0-9._]{1,28}[a-zA-Z0-9]$/;
@@ -37,11 +42,12 @@ router.put("/profile", requireAuth, async (req, res) => {
         username.length < 3 ||
         username.length > 30 ||
         /^\d+$/.test(username) || // cannot be only numbers
-        username.includes("@") // cannot be an email
+        username.includes("@") || // cannot be an email
+        username.includes(" ") // cannot contain spaces
       ) {
         return res.status(400).json({
           message:
-            "Invalid username. Use 3-30 letters, numbers, underscores, or periods. Cannot be only numbers, start/end with period/underscore, or contain '@'."
+            "Invalid username. Use 3-30 letters, numbers, underscores, or periods. Cannot be only numbers, start/end with period/underscore, contain '@', or have spaces."
         });
       }
 
