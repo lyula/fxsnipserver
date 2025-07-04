@@ -45,6 +45,24 @@ router.post("/:postId/comments/:commentId/replies", auth, addReply);
 // Increment post views
 router.post('/:postId/view', incrementPostViews);
 
+// Track post view
+router.post("/:id/view", async (req, res) => {
+  try {
+    const post = await Post.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { views: 1 } },
+      { new: true }
+    );
+    if (!post) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+    res.json({ views: post.views });
+  } catch (error) {
+    console.error("Error tracking view:", error);
+    res.status(500).json({ error: "Failed to track view" });
+  }
+});
+
 // Get posts by username (public profile)
 router.get("/user/:username", async (req, res) => {
   try {
