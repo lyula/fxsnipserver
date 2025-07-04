@@ -261,6 +261,163 @@ exports.getPosts = async (req, res) => {
   }
 };
 
+// Get posts from users that the current user follows
+exports.getFollowingPosts = async (req, res) => {
+  try {
+    const { 
+      limit = 20,
+      offset = 0,
+      scrollDirection = 'down',
+      refreshFeed = false,
+      timestamp,
+      cacheBust
+    } = req.query;
+
+    const userId = req.user?.id;
+    const limitNum = parseInt(limit);
+    const offsetNum = parseInt(offset);
+
+    // Get current user's following list
+    const User = require("../models/User");
+    const currentUser = await User.findById(userId).select('followingRaw');
+    
+    if (!currentUser || !currentUser.followingRaw || currentUser.followingRaw.length === 0) {
+      return res.status(200).json({
+        posts: [],
+        hasMore: false,
+        totalAvailablePosts: 0,
+        nextOffset: offsetNum,
+        scrollDirection,
+        freshContentCount: 0,
+        cyclingInfo: {
+          completedCycles: 0,
+          positionInCurrentCycle: 0,
+          totalPostsInCycle: 0,
+          isRepeatingContent: false,
+          freshContentLoaded: false
+        }
+      });
+    }
+
+    // Query posts from followed users only
+    const query = {
+      author: { $in: currentUser.followingRaw }
+    };
+
+    const sortOptions = { createdAt: -1 }; // Newest first
+
+    // Get posts with populated fields
+    const posts = await Post.find(query)
+      .populate("author", "username verified countryFlag")
+      .populate({
+        path: "comments",
+        populate: {
+          path: "author",
+          select: "username verified"
+        }
+      })
+      .populate({
+        path: "comments.replies.author", 
+        select: "username verified"
+      })
+      .sort(sortOptions)
+      .lean(); // Use lean for better performance
+
+    if (!posts || posts.length === 0) {
+      return res.status(200).json({
+        posts: [],
+        hasMore: false,
+        totalAvailablePosts: 0,
+        nextOffset: offsetNum,
+        scrollDirection,
+        freshContentCount: 0,
+        cyclingInfo: {
+          completedCycles: 0,
+          positionInCurrentCycle: 0,
+          totalPostsInCycle: 0,
+          isRepeatingContent: false,
+          freshContentLoaded: false
+        }
+      });
+    }
+
+    // Calculate time-based metrics for each post
+    const now = new Date();
+    const enrichedPosts = posts.map(post => {
+      const postAge = (now - new Date(post.createdAt)) / (1000 * 60); // age in minutes
+      const hoursSincePost = postAge / 60;
+      
+      // Calculate engagement metrics
+      const likesCount = Array.isArray(post.likes) ? post.likes.length : 0;
+      const commentsCount = Array.isArray(post.comments) ? post.comments.length : 0;
+      const viewsCount = post.views || 0;
+      const totalEngagement = likesCount + commentsCount;
+      
+      return {
+        ...post,
+        _postAgeMinutes: postAge,
+        _postAgeHours: hoursSincePost,
+        _engagement: totalEngagement,
+        _views: viewsCount
+      };
+    });
+
+    // Sort by creation time (newest first) for following feed
+    const sortedPosts = enrichedPosts.sort((a, b) => {
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+
+    // Enhanced pagination with proper cycling support
+    const totalPosts = sortedPosts.length;
+    const paginatedPosts = [];
+
+    if (totalPosts > 0) {
+      for (let i = 0; i < limitNum; i++) {
+        let index = offsetNum + i;
+        
+        // Implement cycling: if we exceed total posts, wrap around
+        if (index >= totalPosts) {
+          index = index % totalPosts;
+        }
+        
+        if (index < totalPosts) {
+          const selectedPost = { ...sortedPosts[index] };
+          selectedPost._scrollPosition = offsetNum + i;
+          selectedPost._cycledPosition = index;
+          paginatedPosts.push(selectedPost);
+        }
+      }
+    }
+
+    // Always have more content available through cycling
+    const hasMore = totalPosts > 0; // Always true if we have posts (cycling)
+    const completedCycles = Math.floor(offsetNum / Math.max(totalPosts, 1));
+    const isRepeatingContent = completedCycles > 0;
+
+    res.status(200).json({
+      posts: paginatedPosts,
+      hasMore,
+      totalAvailablePosts: totalPosts,
+      nextOffset: offsetNum + limitNum,
+      scrollDirection,
+      freshContentCount: 0,
+      cyclingInfo: {
+        completedCycles,
+        positionInCurrentCycle: offsetNum % Math.max(totalPosts, 1),
+        totalPostsInCycle: totalPosts,
+        isRepeatingContent
+      }
+    });
+
+  } catch (error) {
+    console.error("Error in getFollowingPosts:", error);
+    res.status(500).json({ 
+      error: "Failed to fetch following posts",
+      details: error.message
+    });
+  }
+};
+
 // Like a post (with toggle functionality)
 exports.likePost = async (req, res) => {
   try {

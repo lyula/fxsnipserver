@@ -3,6 +3,7 @@ const router = express.Router();
 const { 
   createPost, 
   getPosts, 
+  getFollowingPosts, // Add this line
   likePost, 
   addComment, 
   addReply, 
@@ -15,7 +16,7 @@ const {
   deleteComment,
   editReply,
   deleteReply,
-  getPostLikes  // Add this import
+  getPostLikes
 } = require("../controllers/postController");
 const auth = require("../middleware/auth");
 const Post = require("../models/Post");
@@ -86,6 +87,9 @@ router.get("/by-userid/:userId", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch user's posts" });
   }
 });
+
+// Get posts from followed users
+router.get("/following", auth, getFollowingPosts);
 
 // Edit and delete posts
 router.put("/:postId", auth, editPost);
