@@ -44,7 +44,7 @@ const PostSchema = new mongoose.Schema(
   { timestamps: true } // This adds createdAt and updatedAt automatically
 );
 
-// Add these middleware functions before module.exports
+// Added these middleware functions before module.exports
 
 // Auto-update updatedAt for replies
 ReplySchema.pre("save", function (next) {

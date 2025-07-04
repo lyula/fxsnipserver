@@ -7,7 +7,7 @@ const messageRoutes = require("./routes/message");
 const postRoutes = require("./routes/post");
 const errorHandler = require("./middleware/errorHandler");
 
-app.use(cors()); // <-- add this line
+app.use(cors()); // <-- added this line for cross origin sharing
 app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);

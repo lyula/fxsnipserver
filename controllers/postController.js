@@ -770,3 +770,28 @@ function calculateViralityMultiplier(engagement, ageInHours) {
     return 0.2;
   }
 }
+
+// Get users who liked a post
+exports.getPostLikes = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { limit = 100 } = req.query; // Limit to 100 users as requested
+    
+    const post = await Post.findById(postId)
+      .populate({
+        path: 'likes',
+        select: 'username verified',
+        options: { limit: parseInt(limit) }
+      })
+      .select('likes');
+    
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+    
+    res.status(200).json({ likes: post.likes });
+  } catch (error) {
+    console.error('Error getting post likes:', error);
+    res.status(500).json({ error: 'Failed to get post likes' });
+  }
+};

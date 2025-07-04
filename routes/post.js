@@ -14,7 +14,8 @@ const {
   editComment,
   deleteComment,
   editReply,
-  deleteReply  
+  deleteReply,
+  getPostLikes  // Add this import
 } = require("../controllers/postController");
 const auth = require("../middleware/auth");
 const Post = require("../models/Post");
@@ -79,5 +80,8 @@ router.delete("/:postId/comments/:commentId", auth, deleteComment);
 // Edit and delete replies
 router.put("/:postId/comments/:commentId/replies/:replyId", auth, editReply);
 router.delete("/:postId/comments/:commentId/replies/:replyId", auth, deleteReply);
+
+// Get likes usernames for a post
+router.get("/:postId/likes", auth, getPostLikes);
 
 module.exports = router;
