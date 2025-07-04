@@ -36,7 +36,7 @@ router.put("/profile", requireAuth, async (req, res) => {
         !usernameRegex.test(username) ||
         username.length < 3 ||
         username.length > 30 ||
-        /^\d+$/.test(username) // cannot be only numbers
+        /^\d+$/.test(username) || // cannot be only numbers
         username.includes("@") // cannot be an email
       ) {
         return res.status(400).json({
