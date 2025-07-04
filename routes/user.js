@@ -17,7 +17,7 @@ async function syncFollowCounts(userId) {
 // Get profile
 router.get("/profile", requireAuth, async (req, res) => {
   const user = await User.findById(req.user.id)
-    .select("username email country countryFlag verified"); // <-- Add verified here
+    .select("username email country countryFlag verified createdAt"); // <-- Add createdAt here
   res.json(user);
 });
 
