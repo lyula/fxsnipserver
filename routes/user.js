@@ -24,12 +24,51 @@ router.get("/profile", requireAuth, async (req, res) => {
 // Update profile
 router.put("/profile", requireAuth, async (req, res) => {
   const { username, email } = req.body;
-  const user = await User.findById(req.user.id);
-  if (!user) return res.status(404).json({ message: "User not found" });
-  user.username = username || user.username;
-  user.email = email || user.email;
-  await user.save();
-  res.json({ message: "Profile updated", username: user.username, email: user.email });
+  
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Username validation (same as registration)
+    if (username && username !== user.username) {
+      const usernameRegex = /^(?!.*[_.]{2})[a-zA-Z0-9](?!.*[_.]{2})[a-zA-Z0-9._]{1,28}[a-zA-Z0-9]$/;
+      if (
+        !usernameRegex.test(username) ||
+        username.length < 3 ||
+        username.length > 30 ||
+        /^\d+$/.test(username) // cannot be only numbers
+        username.includes("@") // cannot be an email
+      ) {
+        return res.status(400).json({
+          message:
+            "Invalid username. Use 3-30 letters, numbers, underscores, or periods. Cannot be only numbers, start/end with period/underscore, or contain '@'."
+        });
+      }
+
+      // Check for existing username (excluding current user)
+      const usernameExists = await User.findOne({ 
+        username: username, 
+        _id: { $ne: req.user.id } 
+      });
+      if (usernameExists) {
+        return res.status(409).json({ message: "Username already taken." });
+      }
+    }
+
+    // Update fields
+    user.username = username || user.username;
+    user.email = email || user.email;
+    await user.save();
+    
+    res.json({ 
+      message: "Profile updated", 
+      username: user.username, 
+      email: user.email 
+    });
+  } catch (error) {
+    console.error("Error updating profile:", error);
+    res.status(500).json({ message: "Failed to update profile" });
+  }
 });
 
 // Search users by username or email (case-insensitive, partial match)
