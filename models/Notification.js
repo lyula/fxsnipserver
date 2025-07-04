@@ -13,6 +13,7 @@ const notificationSchema = new mongoose.Schema(
         "comment",
         "reply",
         "follow",
+        "mention", // Add this
       ],
       required: true,
     },

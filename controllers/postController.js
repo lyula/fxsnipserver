@@ -11,18 +11,22 @@ cloudinary.config({
 // Create a new post
 exports.createPost = async (req, res) => {
   try {
-    const { content, image, imagePublicId, video, videoPublicId } = req.body;  // Add video to destructuring
+    const { content, image, imagePublicId, video, videoPublicId } = req.body;
     const post = new Post({
       content,
       image,
       imagePublicId,
       video,
-      videoPublicId,  // Add video field
+      videoPublicId,
       author: req.user.id,
       comments: [],
       likes: [],
     });
     await post.save();
+    
+    // Create mention notifications
+    await createMentionNotifications(content, req.user.id, req.user.username, post._id);
+    
     // Populate author before sending response
     await post.populate("author", "username verified");
     res.status(201).json(post);
@@ -474,6 +478,9 @@ exports.addComment = async (req, res) => {
     post.comments.push(newComment);
     await post.save();
 
+    // Get the newly added comment
+    const addedComment = post.comments[post.comments.length - 1];
+
     // Send notification to the post author
     if (post.author.toString() !== req.user.id) {
       await Notification.create({
@@ -485,7 +492,10 @@ exports.addComment = async (req, res) => {
       });
     }
 
-    // Populate author for the last comment (the one just added)
+    // Create mention notifications
+    await createMentionNotifications(content, req.user.id, req.user.username, post._id, addedComment._id);
+
+    // Populate author for the response
     await post.populate([
       { path: "author", select: "username verified" },
       { path: "comments.author", select: "username verified" },
@@ -613,6 +623,9 @@ exports.addReply = async (req, res) => {
     comment.replies.push(newReply);
     await post.save();
 
+    // Get the newly added reply
+    const addedReply = comment.replies[comment.replies.length - 1];
+
     // Send notification to the comment author
     if (comment.author.toString() !== req.user.id) {
       await Notification.create({
@@ -624,6 +637,9 @@ exports.addReply = async (req, res) => {
         message: `${req.user.username} replied to your comment on a post.`,
       });
     }
+
+    // Create mention notifications
+    await createMentionNotifications(content, req.user.id, req.user.username, post._id, comment._id, addedReply._id);
 
     // Populate author fields for response
     await post.populate([
@@ -953,4 +969,48 @@ exports.getPostLikes = async (req, res) => {
   }
 };
 
-//forcing a commit
+// Helper function to extract mentions from content
+function extractMentions(content) {
+  const mentionRegex = /@(\w+)/g;
+  const mentions = [];
+  let match;
+  
+  while ((match = mentionRegex.exec(content)) !== null) {
+    mentions.push(match[1]); // username without @
+  }
+  
+  return [...new Set(mentions)]; // Remove duplicates
+}
+
+// Helper function to create mention notifications
+async function createMentionNotifications(content, fromUserId, fromUsername, postId, commentId = null, replyId = null) {
+  const User = require("../models/User");
+  
+  const mentions = extractMentions(content);
+  
+  for (const username of mentions) {
+    try {
+      // Find the mentioned user
+      const mentionedUser = await User.findOne({ username: username });
+      
+      if (mentionedUser && mentionedUser._id.toString() !== fromUserId) {
+        // Don't create notification if user mentions themselves
+        
+        let notificationData = {
+          user: mentionedUser._id,
+          from: fromUserId,
+          type: "mention",
+          post: postId,
+          message: `${fromUsername} mentioned you in a ${replyId ? 'reply' : commentId ? 'comment' : 'post'}.`,
+        };
+        
+        if (commentId) notificationData.comment = commentId;
+        if (replyId) notificationData.reply = replyId;
+        
+        await Notification.create(notificationData);
+      }
+    } catch (error) {
+      console.error(`Error creating mention notification for @${username}:`, error);
+    }
+  }
+}
