@@ -106,4 +106,18 @@ router.delete("/:postId/comments/:commentId/replies/:replyId", auth, deleteReply
 // Get likes usernames for a post
 router.get("/:postId/likes", auth, getPostLikes);
 
+// Get a single post by ID
+router.get("/:postId", async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.postId)
+      .populate("author", "username verified")
+      .populate("comments.author", "username verified")
+      .populate("comments.replies.author", "username verified");
+    if (!post) return res.status(404).json({ error: "Post not found" });
+    res.status(200).json(post);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch post" });
+  }
+});
+
 module.exports = router;
