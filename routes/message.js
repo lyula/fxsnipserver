@@ -109,6 +109,21 @@ router.get("/", requireAuth, async (req, res) => {
         }
       }
     });
+
+    // Decrypt last message text in each conversation before sending
+    conversations.forEach(msg => {
+      if (msg.lastMessage && msg.lastMessage.text) {
+        if (msg.lastMessage.text.includes(':')) {
+          try {
+            msg.lastMessage.text = decrypt(msg.lastMessage.text);
+          } catch (e) {
+            msg.lastMessage.text = '[decryption error]';
+          }
+        }
+        // else leave as is (plain text)
+      }
+    });
+
     res.json(conversations);
   } catch (err) {
     res.status(500).json({ message: "Error fetching conversations", error: err.message });
