@@ -338,4 +338,15 @@ router.post("/notifications/mark-read", requireAuth, async (req, res) => {
   res.json({ success: true });
 });
 
+// Get last seen for a user
+router.get("/last-seen/:userId", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId).select("lastSeen");
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json({ lastSeen: user.lastSeen });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 module.exports = router;

@@ -16,6 +16,7 @@ const userSchema = new mongoose.Schema({
   countryCode: { type: String },
   countryFlag: { type: String },
   verified: { type: Boolean, default: false },
+  lastSeen: { type: Date, default: Date.now },
 }, { timestamps: true });
 
 module.exports = mongoose.model("User", userSchema);
