@@ -488,6 +488,7 @@ exports.addComment = async (req, res) => {
         from: req.user.id,
         type: "comment",
         post: post._id,
+        comment: addedComment._id, // <-- Add this line
         message: `${req.user.username} commented on your post.`,
       });
     }
@@ -634,6 +635,7 @@ exports.addReply = async (req, res) => {
         type: "reply",
         post: post._id,
         comment: comment._id,
+        reply: addedReply._id, // <-- Add this line
         message: `${req.user.username} replied to your comment on a post.`,
       });
     }
