@@ -44,7 +44,7 @@ router.post("/:postId/comments", auth, addComment);
 router.post("/:postId/comments/:commentId/replies", auth, addReply);
 
 // Increment post views
-router.post('/:postId/view', incrementPostViews);
+router.post('/:id/view', incrementPostViews);
 
 // Track post view
 router.post("/:id/view", async (req, res) => {

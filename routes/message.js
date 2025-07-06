@@ -4,13 +4,19 @@ const requireAuth = require("../middleware/auth");
 const Message = require("../models/Message");
 const User = require("../models/User");
 const mongoose = require("mongoose");
+const { encrypt, decrypt } = require("../utils/encrypt");
 
 // Send a message
 router.post("/", requireAuth, async (req, res) => {
   const { to, text } = req.body;
   if (!to || !text) return res.status(400).json({ message: "Recipient and text required." });
-  const msg = await Message.create({ from: req.user.id, to, text });
-  res.json(msg);
+  // Encrypt the message text before saving
+  const encryptedText = encrypt(text);
+  const msg = await Message.create({ from: req.user.id, to, text: encryptedText });
+  // Decrypt before sending to client
+  const msgObj = msg.toObject();
+  msgObj.text = text;
+  res.json(msgObj);
 });
 
 // Get all conversations for the logged-in user, with unread counts
@@ -92,10 +98,15 @@ router.get("/", requireAuth, async (req, res) => {
       });
     }
 
+    // Decrypt all message texts before sending
+    conversations.forEach(msg => {
+      if (msg.text) {
+        try { msg.text = decrypt(msg.text); } catch (e) { msg.text = "[decryption error]"; }
+      }
+    });
     res.json(conversations);
   } catch (err) {
-    console.error("Error in /api/message GET:", err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ message: "Error fetching conversations", error: err.message });
   }
 });
 
@@ -130,6 +141,13 @@ router.get("/:userId", requireAuth, async (req, res) => {
     // Reverse to show oldest first (since we sorted by newest first for pagination)
     messages.reverse();
     
+    // Decrypt messages before sending
+    messages.forEach(msg => {
+      if (msg.text) {
+        try { msg.text = decrypt(msg.text); } catch (e) { msg.text = "[decryption error]"; }
+      }
+    });
+
     res.json(messages);
   } catch (err) {
     console.error("Error fetching messages:", err);

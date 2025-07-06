@@ -657,18 +657,23 @@ exports.addReply = async (req, res) => {
 // Increment post views
 exports.incrementPostViews = async (req, res) => {
   try {
+    // Change from req.params.postId to req.params.id
+    const postId = req.params.id;
+    
     const post = await Post.findByIdAndUpdate(
-      req.params.postId,
+      postId,
       { $inc: { views: 1 } },
       { new: true }
     );
+
     if (!post) {
-      return res.status(404).json({ error: "Post not found" });
+      return res.status(404).json({ error: 'Post not found' });
     }
+
     res.json({ views: post.views });
-  } catch (err) {
-    console.error("Error incrementing post views:", err);
-    res.status(500).json({ error: "Failed to increment views" });
+  } catch (error) {
+    console.error('Error incrementing post views:', error);
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
