@@ -101,7 +101,12 @@ router.get("/", requireAuth, async (req, res) => {
     // Decrypt all message texts before sending
     conversations.forEach(msg => {
       if (msg.text) {
-        try { msg.text = decrypt(msg.text); } catch (e) { msg.text = "[decryption error]"; }
+        try {
+          msg.text = decrypt(msg.text);
+        } catch (e) {
+          // Fallback: if decryption fails, assume it's plain text
+          msg.text = msg.text;
+        }
       }
     });
     res.json(conversations);
@@ -144,7 +149,13 @@ router.get("/:userId", requireAuth, async (req, res) => {
     // Decrypt messages before sending
     messages.forEach(msg => {
       if (msg.text) {
-        try { msg.text = decrypt(msg.text); } catch (e) { msg.text = "[decryption error]"; }
+        if (msg.text && msg.text.includes(':')) {
+          try {
+            msg.text = decrypt(msg.text);
+          } catch (e) {
+            msg.text = '[decryption error]';
+          }
+        }
       }
     });
 
