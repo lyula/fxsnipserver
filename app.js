@@ -6,6 +6,7 @@ const userRoutes = require("./routes/user");
 const messageRoutes = require("./routes/message");
 const postRoutes = require("./routes/post");
 const badgePaymentRoutes = require("./routes/badgePayment");
+const badgePricingRoutes = require('./routes/badgePricing');
 const errorHandler = require("./middleware/errorHandler");
 
 app.use(cors({
@@ -24,6 +25,8 @@ app.use("/api/user", userRoutes);
 app.use("/api/message", messageRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/badge-payments", badgePaymentRoutes);
+app.use("/api/pricing", pricingRoutes);
+app.use("/api/badge-pricing", badgePricingRoutes);
 app.use(errorHandler);
 app.all('/debug-headers', (req, res) => {
   res.json({ headers: req.headers });
