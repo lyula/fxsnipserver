@@ -115,9 +115,8 @@ exports.initiateSTKPush = async (req, res) => {
             rawResponse: response.data,
             serviceDetails: { external_reference },
             mpesaCode: null, // Add for easier viewing
-            externalReference: external_reference, // Add for easier viewing
-            periodStart,
-            periodEnd
+            externalReference: external_reference // Add for easier viewing
+            // Do NOT set periodStart or periodEnd here
         });
         res.json(response.data);
     } catch (err) {
@@ -131,16 +130,39 @@ exports.payheroCallback = async (req, res) => {
     try {
         const data = req.body.response || req.body;
         // Find and update the payment by transactionId or external_reference
+        let update = {
+            status: data.Status === 'Success' ? 'completed' : 'failed',
+            rawResponse: data,
+            methodDetails: { MpesaReceiptNumber: data.MpesaReceiptNumber, ResultDesc: data.ResultDesc },
+            mpesaCode: data.MpesaReceiptNumber || null, // Store M-Pesa code at top level
+            serviceDetails: { external_reference: data.ExternalReference || data.external_reference },
+            externalReference: data.ExternalReference || data.external_reference || null
+        };
+        // Only set periodStart and periodEnd if payment is successful
+        if (data.Status === 'Success') {
+            const now = new Date();
+            let periodStart = now;
+            let periodEnd;
+            // Try to get billingType from payment or fallback to 30 days
+            const paymentDoc = await BadgePayment.findOne({ transactionId: data.CheckoutRequestID });
+            let billingType = 'monthly';
+            if (paymentDoc && paymentDoc.methodDetails && paymentDoc.methodDetails.billingType) {
+                billingType = paymentDoc.methodDetails.billingType;
+            }
+            if (billingType === 'annual') {
+                periodEnd = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+            } else {
+                periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+            }
+            update.periodStart = periodStart;
+            update.periodEnd = periodEnd;
+        } else {
+            update.periodStart = undefined;
+            update.periodEnd = undefined;
+        }
         const payment = await BadgePayment.findOneAndUpdate(
             { transactionId: data.CheckoutRequestID },
-            {
-                status: data.Status === 'Success' ? 'completed' : 'failed',
-                rawResponse: data,
-                methodDetails: { MpesaReceiptNumber: data.MpesaReceiptNumber, ResultDesc: data.ResultDesc },
-                mpesaCode: data.MpesaReceiptNumber || null, // Store M-Pesa code at top level
-                serviceDetails: { external_reference: data.ExternalReference || data.external_reference },
-                externalReference: data.ExternalReference || data.external_reference || null
-            },
+            update,
             { new: true }
         );
         if (payment && data.Status === 'Success') {
