@@ -59,12 +59,6 @@ exports.expireOldBadgePayments = async () => {
 // Initiate PayHero STK Push
 exports.initiateSTKPush = async (req, res) => {
     try {
-        console.log('STK push request body:', req.body);
-        // Use authenticated user from JWT, not from body
-        const userId = req.user && req.user.id;
-        if (!userId) {
-            return res.status(401).json({ error: 'User not authenticated' });
-        }
         const { phone_number, amount, customer_name } = req.body;
         if (!phone_number || !amount || !customer_name) {
             return res.status(400).json({ error: 'Missing required payment fields' });
