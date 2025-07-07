@@ -11,11 +11,21 @@ const errorHandler = require("./middleware/errorHandler");
 app.set('trust proxy', 1);
 
 app.use(cors({
-  origin: ["http://localhost:5173", "https://fxsnip.vercel.app"],
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true, // add this line
-  optionsSuccessStatus: 200 // add this for legacy browser support
+  origin: [
+    'http://localhost:5173',
+    'https://your-production-frontend.com'
+  ],
+  credentials: true,
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'Cache-Control'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  optionsSuccessStatus: 200
 }));
 app.use(express.json());
 app.use("/api/auth", authRoutes);
