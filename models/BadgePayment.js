@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const BadgePaymentSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  username: { type: String }, // Denormalized username
   type: {
     type: String,
     enum: ['verified_badge', 'signals', 'ads', 'journal'],

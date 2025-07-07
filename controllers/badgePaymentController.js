@@ -11,12 +11,16 @@ exports.createBadgePayment = async (req, res) => {
         if (!userId) {
             return res.status(401).json({ error: 'User not authenticated' });
         }
+        // Fetch username for denormalization
+        const userDoc = await User.findById(userId);
+        const username = userDoc ? userDoc.username : undefined;
         const { type, amount, currency, paymentMethod, methodDetails, serviceDetails, transactionId, rawResponse, periodStart, periodEnd, status, mpesaCode, externalReference } = req.body;
         if (!type || !amount || !currency || !paymentMethod || !status) {
             return res.status(400).json({ error: 'Missing required payment fields' });
         }
         const badgePayment = await BadgePayment.create({
             user: userId,
+            username, // Store username as top-level field
             type,
             amount,
             currency,
@@ -61,6 +65,8 @@ exports.initiateSTKPush = async (req, res) => {
     try {
         // Use authenticated user from JWT, not from body
         const userId = req.user && req.user.id;
+        const userDoc = await User.findById(userId);
+        const username = userDoc ? userDoc.username : undefined;
         const { phone_number, amount, customer_name, billingType } = req.body;
         if (!phone_number || !amount || !customer_name) {
             return res.status(400).json({ error: 'Missing required payment fields' });
@@ -98,6 +104,7 @@ exports.initiateSTKPush = async (req, res) => {
         // Save attempt in DB (status: pending)
         await BadgePayment.create({
             user: userId,
+            username, // Store username as top-level field
             type: 'verified_badge',
             amount,
             currency: 'KES',
