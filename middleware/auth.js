@@ -13,6 +13,9 @@ function requireAuth(req, res, next) {
   console.log("JWT token:", token);
   const decodedRaw = jwt.decode(token);
   console.log("Decoded (raw, no verify):", decodedRaw);
+  console.log("Type of decodedRaw:", typeof decodedRaw, Array.isArray(decodedRaw));
+  console.log("Type of token:", typeof token);
+  console.log("Type of process.env.JWT_SECRET:", typeof process.env.JWT_SECRET);
 
   if (!process.env.JWT_SECRET) {
     console.error("JWT_SECRET is not set in environment variables!");
@@ -21,7 +24,7 @@ function requireAuth(req, res, next) {
   console.log("JWT_SECRET in middleware:", process.env.JWT_SECRET);
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log("Decoded JWT user:", decoded);
+    console.log("Decoded JWT user (verify):", decoded);
     req.user = decoded;
     next();
   } catch (err) {
