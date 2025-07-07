@@ -8,25 +8,16 @@ const postRoutes = require("./routes/post");
 const badgePaymentRoutes = require("./routes/badgePayment");
 const errorHandler = require("./middleware/errorHandler");
 
-app.set('trust proxy', 1);
-
 app.use(cors({
   origin: [
     'http://localhost:5173',
     'https://your-production-frontend.com'
   ],
   credentials: true,
-  allowedHeaders: [
-    'Origin',
-    'X-Requested-With',
-    'Content-Type',
-    'Accept',
-    'Authorization',
-    'Cache-Control'
-  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   optionsSuccessStatus: 200
 }));
+app.set('trust proxy', 1);
 app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
