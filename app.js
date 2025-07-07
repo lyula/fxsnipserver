@@ -12,6 +12,8 @@ app.use(cors({
   origin: ["http://localhost:5173", "https://fxsnip.vercel.app"],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true, // add this line
+  optionsSuccessStatus: 200 // add this for legacy browser support
 }));
 app.use(express.json());
 app.use("/api/auth", authRoutes);
