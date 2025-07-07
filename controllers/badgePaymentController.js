@@ -43,8 +43,9 @@ exports.expireOldBadgePayments = async () => {
 // Initiate PayHero STK Push
 exports.initiateSTKPush = async (req, res) => {
     try {
+        console.log('STK push request body:', req.body);
         const { phone_number, amount, customer_name } = req.body;
-        const channel_id = process.env.CHANNEL_ID;
+        const channel_id = process.env.PAYHERO_CHANNEL_ID;
         const callback_url = `${process.env.BASE_URL || 'https://yourdomain.com'}/api/badge-payments/payhero-callback`;
         const external_reference = `BADGE-${Date.now()}`;
         const response = await axios.post(
@@ -61,7 +62,7 @@ exports.initiateSTKPush = async (req, res) => {
             {
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': process.env.BasicAuth.trim()
+                    'Authorization': process.env.PAYHERO_BASIC_AUTH.trim()
                 }
             }
         );
@@ -80,6 +81,7 @@ exports.initiateSTKPush = async (req, res) => {
         });
         res.json(response.data);
     } catch (err) {
+        console.error('STK push error:', err);
         res.status(500).json({ error: err.message });
     }
 };
