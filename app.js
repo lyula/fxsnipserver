@@ -24,5 +24,8 @@ app.use("/api/message", messageRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/badge-payments", badgePaymentRoutes);
 app.use(errorHandler);
+app.all('/debug-headers', (req, res) => {
+  res.json({ headers: req.headers });
+});
 
 module.exports = app;
