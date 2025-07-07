@@ -71,6 +71,12 @@ exports.initiateSTKPush = async (req, res) => {
         if (!phone_number || !amount || !customer_name) {
             return res.status(400).json({ error: 'Missing required payment fields' });
         }
+        if (!/^2547\d{8}$/.test(phone_number)) {
+            return res.status(400).json({ error: 'Phone number must be in format 2547XXXXXXXX' });
+        }
+        if (!process.env.PAYHERO_CHANNEL_ID || !process.env.PAYHERO_BASIC_AUTH) {
+            return res.status(500).json({ error: 'PayHero credentials not set in environment' });
+        }
         // Set periodStart and periodEnd based on billingType
         const now = new Date();
         let periodStart = now;
@@ -83,24 +89,30 @@ exports.initiateSTKPush = async (req, res) => {
         const channel_id = process.env.PAYHERO_CHANNEL_ID;
         const callback_url = `${process.env.BASE_URL || 'https://yourdomain.com'}/api/badge-payments/payhero-callback`;
         const external_reference = `BADGE-${Date.now()}`;
-        const response = await axios.post(
-            'https://backend.payhero.co.ke/api/v2/payments',
-            {
-                amount,
-                phone_number,
-                channel_id: Number(channel_id),
-                provider: 'm-pesa',
-                external_reference,
-                customer_name,
-                callback_url
-            },
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': process.env.PAYHERO_BASIC_AUTH.trim()
+        let response;
+        try {
+            response = await axios.post(
+                'https://backend.payhero.co.ke/api/v2/payments',
+                {
+                    amount,
+                    phone_number,
+                    channel_id: Number(channel_id),
+                    provider: 'm-pesa',
+                    external_reference,
+                    customer_name,
+                    callback_url
+                },
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': process.env.PAYHERO_BASIC_AUTH.trim()
+                    }
                 }
-            }
-        );
+            );
+        } catch (apiErr) {
+            console.error('PayHero API error:', apiErr.response?.data || apiErr.message);
+            return res.status(502).json({ error: 'PayHero API error', details: apiErr.response?.data || apiErr.message });
+        }
         // Save attempt in DB (status: pending)
         await BadgePayment.create({
             user: userId,
