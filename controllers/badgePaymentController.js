@@ -1,29 +1,43 @@
 const BadgePayment = require('../models/BadgePayment');
 const User = require('../models/User');
 const axios = require('axios');
+const requireAuth = require("../middleware/auth");
 
 // Create a badge payment
 exports.createBadgePayment = async (req, res) => {
-    const { userId, type, amount, currency, paymentMethod, methodDetails, serviceDetails, transactionId, rawResponse, periodStart, periodEnd, status } = req.body;
-    const badgePayment = await BadgePayment.create({
-      user: userId,
-      type,
-      amount,
-      currency,
-      paymentMethod,
-      methodDetails,
-      serviceDetails,
-      transactionId,
-      rawResponse,
-      periodStart,
-      periodEnd,
-      status
-    });
-    // If payment is for verified badge and successful, update user
-    if (badgePayment.type === 'verified_badge' && badgePayment.status === 'completed') {
-        await User.findByIdAndUpdate(badgePayment.user, { verified: true });
+    try {
+        // Use authenticated user from JWT, not from body
+        const userId = req.user && req.user.id;
+        if (!userId) {
+            return res.status(401).json({ error: 'User not authenticated' });
+        }
+        const { type, amount, currency, paymentMethod, methodDetails, serviceDetails, transactionId, rawResponse, periodStart, periodEnd, status } = req.body;
+        if (!type || !amount || !currency || !paymentMethod || !status) {
+            return res.status(400).json({ error: 'Missing required payment fields' });
+        }
+        const badgePayment = await BadgePayment.create({
+            user: userId,
+            type,
+            amount,
+            currency,
+            paymentMethod,
+            methodDetails,
+            serviceDetails,
+            transactionId,
+            rawResponse,
+            periodStart,
+            periodEnd,
+            status
+        });
+        // If payment is for verified badge and successful, update user
+        if (badgePayment.type === 'verified_badge' && badgePayment.status === 'completed') {
+            await User.findByIdAndUpdate(badgePayment.user, { verified: true });
+        }
+        res.status(201).json(badgePayment);
+    } catch (err) {
+        console.error('Create badge payment error:', err);
+        res.status(500).json({ error: err.message });
     }
-    res.status(201).json(badgePayment);
 };
 
 // Find all completed badge payments where periodEnd has passed
@@ -44,7 +58,15 @@ exports.expireOldBadgePayments = async () => {
 exports.initiateSTKPush = async (req, res) => {
     try {
         console.log('STK push request body:', req.body);
+        // Use authenticated user from JWT, not from body
+        const userId = req.user && req.user.id;
+        if (!userId) {
+            return res.status(401).json({ error: 'User not authenticated' });
+        }
         const { phone_number, amount, customer_name } = req.body;
+        if (!phone_number || !amount || !customer_name) {
+            return res.status(400).json({ error: 'Missing required payment fields' });
+        }
         const channel_id = process.env.PAYHERO_CHANNEL_ID;
         const callback_url = `${process.env.BASE_URL || 'https://yourdomain.com'}/api/badge-payments/payhero-callback`;
         const external_reference = `BADGE-${Date.now()}`;
@@ -68,7 +90,7 @@ exports.initiateSTKPush = async (req, res) => {
         );
         // Save attempt in DB (status: pending)
         await BadgePayment.create({
-            user: req.body.userId,
+            user: userId,
             type: 'verified_badge',
             amount,
             currency: 'KES',
