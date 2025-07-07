@@ -10,6 +10,10 @@ function requireAuth(req, res, next) {
   }
 
   const token = authHeader.split(" ")[1];
+  console.log("JWT token:", token);
+  const decodedRaw = jwt.decode(token);
+  console.log("Decoded (raw, no verify):", decodedRaw);
+
   if (!process.env.JWT_SECRET) {
     console.error("JWT_SECRET is not set in environment variables!");
     return res.status(500).json({ message: "Server misconfiguration" });
