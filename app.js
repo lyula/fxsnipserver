@@ -5,7 +5,6 @@ const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/user");
 const messageRoutes = require("./routes/message");
 const postRoutes = require("./routes/post");
-const paymentRoutes = require("./routes/payment");
 const badgePaymentRoutes = require("./routes/badgePayment");
 const errorHandler = require("./middleware/errorHandler");
 
@@ -15,7 +14,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/message", messageRoutes);
 app.use("/api/posts", postRoutes);
-app.use("/api/payments", paymentRoutes);
 app.use("/api/badge-payments", badgePaymentRoutes);
 app.use(errorHandler);
 
