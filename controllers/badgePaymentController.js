@@ -130,3 +130,17 @@ exports.payheroCallback = async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 };
+
+// Get latest badge payment for current user
+exports.getLatestBadgePayment = async (req, res) => {
+  try {
+    const userId = req.user && req.user.id;
+    if (!userId) return res.status(401).json({ error: 'User not authenticated' });
+    const payment = await BadgePayment.findOne({ user: userId, type: 'verified_badge' })
+      .sort({ createdAt: -1 });
+    if (!payment) return res.status(404).json({ error: 'No payment found' });
+    res.json(payment);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
