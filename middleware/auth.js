@@ -14,7 +14,7 @@ function requireAuth(req, res, next) {
     console.error("JWT_SECRET is not set in environment variables!");
     return res.status(500).json({ message: "Server misconfiguration" });
   }
-
+  console.log("JWT_SECRET in middleware:", process.env.JWT_SECRET);
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log("Decoded JWT user:", decoded);
