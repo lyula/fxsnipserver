@@ -1,5 +1,5 @@
 const express = require("express");
-const cors = require("cors"); // <-- add this
+const cors = require("cors");
 const app = express();
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/user");
@@ -8,7 +8,11 @@ const postRoutes = require("./routes/post");
 const badgePaymentRoutes = require("./routes/badgePayment");
 const errorHandler = require("./middleware/errorHandler");
 
-app.use(cors()); // <-- added this line for cross origin sharing
+app.use(cors({
+  origin: ["http://localhost:5173", "https://fxsnip.vercel.app"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
 app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
