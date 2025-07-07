@@ -26,6 +26,8 @@ const BadgePaymentSchema = new mongoose.Schema({
   rawResponse: { type: Object },
   periodStart: { type: Date }, // For subscriptions
   periodEnd: { type: Date },   // For subscriptions
+  mpesaCode: { type: String }, // Top-level M-Pesa code
+  externalReference: { type: String }, // Top-level external reference
 }, { timestamps: true });
 
 module.exports = mongoose.model('BadgePayment', BadgePaymentSchema);

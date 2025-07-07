@@ -11,7 +11,7 @@ exports.createBadgePayment = async (req, res) => {
         if (!userId) {
             return res.status(401).json({ error: 'User not authenticated' });
         }
-        const { type, amount, currency, paymentMethod, methodDetails, serviceDetails, transactionId, rawResponse, periodStart, periodEnd, status } = req.body;
+        const { type, amount, currency, paymentMethod, methodDetails, serviceDetails, transactionId, rawResponse, periodStart, periodEnd, status, mpesaCode, externalReference } = req.body;
         if (!type || !amount || !currency || !paymentMethod || !status) {
             return res.status(400).json({ error: 'Missing required payment fields' });
         }
@@ -27,7 +27,9 @@ exports.createBadgePayment = async (req, res) => {
             rawResponse,
             periodStart,
             periodEnd,
-            status
+            status,
+            mpesaCode: mpesaCode || null,
+            externalReference: externalReference || null
         });
         // If payment is for verified badge and successful, update user
         if (badgePayment.type === 'verified_badge' && badgePayment.status === 'completed') {
@@ -99,7 +101,9 @@ exports.initiateSTKPush = async (req, res) => {
             methodDetails: { phone_number },
             transactionId: response.data.CheckoutRequestID,
             rawResponse: response.data,
-            serviceDetails: { external_reference }
+            serviceDetails: { external_reference },
+            mpesaCode: null, // Add for easier viewing
+            externalReference: external_reference // Add for easier viewing
         });
         res.json(response.data);
     } catch (err) {
@@ -118,7 +122,10 @@ exports.payheroCallback = async (req, res) => {
             {
                 status: data.Status === 'Success' ? 'completed' : 'failed',
                 rawResponse: data,
-                methodDetails: { MpesaReceiptNumber: data.MpesaReceiptNumber, ResultDesc: data.ResultDesc }
+                methodDetails: { MpesaReceiptNumber: data.MpesaReceiptNumber, ResultDesc: data.ResultDesc },
+                mpesaCode: data.MpesaReceiptNumber || null, // Store M-Pesa code at top level
+                serviceDetails: { external_reference: data.ExternalReference || data.external_reference },
+                externalReference: data.ExternalReference || data.external_reference || null
             },
             { new: true }
         );
@@ -137,10 +144,39 @@ exports.getLatestBadgePayment = async (req, res) => {
     const userId = req.user && req.user.id;
     if (!userId) return res.status(401).json({ error: 'User not authenticated' });
     const payment = await BadgePayment.findOne({ user: userId, type: 'verified_badge' })
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .populate('user', 'username'); // Populate username
     if (!payment) return res.status(404).json({ error: 'No payment found' });
     res.json(payment);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+
+// Get all badge payments for current user (history)
+exports.getAllBadgePayments = async (req, res) => {
+  try {
+    const userId = req.user && req.user.id;
+    if (!userId) return res.status(401).json({ error: 'User not authenticated' });
+    const payments = await BadgePayment.find({ user: userId })
+      .sort({ createdAt: -1 })
+      .populate('user', 'username');
+    res.json(payments);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Get all badge payments (admin)
+exports.getAllBadgePaymentsAdmin = async (req, res) => {
+  try {
+    const payments = await BadgePayment.find({})
+      .sort({ createdAt: -1 })
+      .populate('user', 'username');
+    res.json(payments);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Optionally, update other fetch endpoints to populate user.username as well
