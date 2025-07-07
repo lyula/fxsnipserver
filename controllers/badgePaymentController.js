@@ -59,9 +59,20 @@ exports.expireOldBadgePayments = async () => {
 // Initiate PayHero STK Push
 exports.initiateSTKPush = async (req, res) => {
     try {
-        const { phone_number, amount, customer_name } = req.body;
+        // Use authenticated user from JWT, not from body
+        const userId = req.user && req.user.id;
+        const { phone_number, amount, customer_name, billingType } = req.body;
         if (!phone_number || !amount || !customer_name) {
             return res.status(400).json({ error: 'Missing required payment fields' });
+        }
+        // Set periodStart and periodEnd based on billingType
+        const now = new Date();
+        let periodStart = now;
+        let periodEnd;
+        if (billingType === 'annual') {
+            periodEnd = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+        } else {
+            periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
         }
         const channel_id = process.env.PAYHERO_CHANNEL_ID;
         const callback_url = `${process.env.BASE_URL || 'https://yourdomain.com'}/api/badge-payments/payhero-callback`;
@@ -97,7 +108,9 @@ exports.initiateSTKPush = async (req, res) => {
             rawResponse: response.data,
             serviceDetails: { external_reference },
             mpesaCode: null, // Add for easier viewing
-            externalReference: external_reference // Add for easier viewing
+            externalReference: external_reference, // Add for easier viewing
+            periodStart,
+            periodEnd
         });
         res.json(response.data);
     } catch (err) {
