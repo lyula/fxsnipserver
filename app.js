@@ -25,7 +25,6 @@ app.use("/api/user", userRoutes);
 app.use("/api/message", messageRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/badge-payments", badgePaymentRoutes);
-app.use("/api/pricing", pricingRoutes);
 app.use("/api/badge-pricing", badgePricingRoutes);
 app.use(errorHandler);
 app.all('/debug-headers', (req, res) => {
