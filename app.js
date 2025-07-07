@@ -11,7 +11,7 @@ const errorHandler = require("./middleware/errorHandler");
 app.use(cors({
   origin: [
     'http://localhost:5173',
-    'https://your-production-frontend.com'
+    'https://fxsnip.vercel.app'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
