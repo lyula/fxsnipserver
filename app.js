@@ -8,6 +8,8 @@ const postRoutes = require("./routes/post");
 const badgePaymentRoutes = require("./routes/badgePayment");
 const errorHandler = require("./middleware/errorHandler");
 
+app.set('trust proxy', 1);
+
 app.use(cors({
   origin: ["http://localhost:5173", "https://fxsnip.vercel.app"],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
