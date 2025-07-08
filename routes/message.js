@@ -135,9 +135,27 @@ router.get("/:userId", requireAuth, async (req, res) => {
   try {
     const myId = req.user.id || req.user._id;
     const otherId = req.params.userId;
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 100;
-    const skip = (page - 1) * limit;
+    // --- Weekly pagination support ---
+    const before = req.query.before ? new Date(Number(req.query.before)) : null;
+    const week = req.query.week ? parseInt(req.query.week) : 0; // 0 = current week, 1 = previous, etc.
+    let startDate, endDate;
+    if (before || week) {
+      // Calculate the week range
+      let refDate = before ? new Date(before) : new Date();
+      // Always set to start of day for consistency
+      refDate.setHours(0, 0, 0, 0);
+      // Go back 'week' weeks
+      refDate.setDate(refDate.getDate() - 7 * week);
+      // Find the start of the week (Monday)
+      const day = refDate.getDay();
+      const diffToMonday = (day === 0 ? -6 : 1) - day; // Sunday=0, Monday=1
+      startDate = new Date(refDate);
+      startDate.setDate(refDate.getDate() + diffToMonday);
+      startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + 7);
+      endDate.setHours(0, 0, 0, 0);
+    }
 
     // Mark all messages from otherId to me as read
     await Message.updateMany(
@@ -145,22 +163,37 @@ router.get("/:userId", requireAuth, async (req, res) => {
       { $set: { read: true } }
     );
 
-    // Fetch messages with pagination and lean queries
-    const messages = await Message.find({
+    // Build query
+    const query = {
       $or: [
         { from: myId, to: otherId },
         { from: otherId, to: myId }
       ]
-    })
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit)
-    .lean()
-    .exec();
+    };
+    if (startDate && endDate) {
+      query.createdAt = { $gte: startDate, $lt: endDate };
+    }
 
-    // Reverse to show oldest first (since we sorted by newest first for pagination)
-    messages.reverse();
-    
+    // Fetch messages (no skip/limit for week mode)
+    let messages = await Message.find(query)
+      .sort({ createdAt: 1 }) // oldest first for chat
+      .lean()
+      .exec();
+
+    // If not using week mode, fallback to old pagination
+    if (!startDate || !endDate) {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 100;
+      const skip = (page - 1) * limit;
+      messages = await Message.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .exec();
+      messages.reverse();
+    }
+
     // Decrypt messages before sending
     messages.forEach(msg => {
       if (msg.text) {
