@@ -2,6 +2,7 @@ const BadgePayment = require('../models/BadgePayment');
 const User = require('../models/User');
 const axios = require('axios');
 const requireAuth = require("../middleware/auth");
+const Notification = require("../models/Notification");
 
 // Create a badge payment
 exports.createBadgePayment = async (req, res) => {
@@ -177,6 +178,28 @@ exports.payheroCallback = async (req, res) => {
             update,
             { new: true }
         );
+        // Send notification for both success and failure
+        if (payment) {
+          const userDoc = await User.findById(payment.user);
+          const reason = payment.type === "verified_badge"
+            ? "Blue Badge subscription"
+            : payment.type
+              ? `${payment.type.charAt(0).toUpperCase() + payment.type.slice(1)} badge subscription`
+              : "badge subscription";
+          let message;
+          if (data.Status === 'Success') {
+            message = `Hey ${userDoc.username}, your payment of ${payment.currency || "KES"} ${payment.amount} for ${reason} was successful!`;
+          } else {
+            message = `Sorry ${userDoc.username}, your payment of ${payment.currency || "KES"} ${payment.amount} for ${reason} failed. Reason: ${data.ResultDesc || "Unknown error"}. Please try again.`;
+          }
+          await Notification.create({
+            user: payment.user,
+            type: "badge_payment",
+            message,
+            read: false,
+            payment: payment._id,
+          });
+        }
         if (payment && data.Status === 'Success') {
             await User.findByIdAndUpdate(payment.user, { verified: true });
         }

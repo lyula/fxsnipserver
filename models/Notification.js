@@ -13,7 +13,8 @@ const notificationSchema = new mongoose.Schema(
         "comment",
         "reply",
         "follow",
-        "mention", // Add this
+        "mention",
+        "badge_payment", // Add this
       ],
       required: true,
     },
@@ -23,6 +24,7 @@ const notificationSchema = new mongoose.Schema(
     message: String,
     read: { type: Boolean, default: false },
     createdAt: { type: Date, default: Date.now },
+    payment: { type: mongoose.Schema.Types.ObjectId, ref: "BadgePayment" }, // for payment notifications
   }
 );
 
