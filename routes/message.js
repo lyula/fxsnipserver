@@ -5,18 +5,18 @@ const Message = require("../models/Message");
 const User = require("../models/User");
 const mongoose = require("mongoose");
 const { encrypt, decrypt } = require("../utils/encrypt");
+const { createMessage } = require("../utils/message");
 
 // Send a message
 router.post("/", requireAuth, async (req, res) => {
   const { to, text } = req.body;
   if (!to || !text) return res.status(400).json({ message: "Recipient and text required." });
-  // Encrypt the message text before saving
-  const encryptedText = encrypt(text);
-  const msg = await Message.create({ from: req.user.id, to, text: encryptedText });
-  // Decrypt before sending to client
-  const msgObj = msg.toObject();
-  msgObj.text = text;
-  res.json(msgObj);
+  try {
+    const msgObj = await createMessage({ from: req.user.id, to, text });
+    res.json(msgObj);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to send message.", error: err.message });
+  }
 });
 
 // Get all conversations for the logged-in user, with unread counts

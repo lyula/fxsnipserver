@@ -1,5 +1,5 @@
 // Handles real-time messaging events for socket.io
-const { createMessage } = require("../controllers/messageController");
+const { createMessage } = require("../utils/message");
 
 module.exports = function messagingSocket(io, socket, onlineUsers) {
   socket.on("sendMessage", async (data) => {
@@ -14,7 +14,7 @@ module.exports = function messagingSocket(io, socket, onlineUsers) {
         console.warn("[Socket] sendMessage: Missing 'to' or 'text'", { to, text });
         return;
       }
-      // Save message to DB
+      // Save message to DB using shared logic
       const populatedMsg = await createMessage({ from: socket.userId, to, text });
       console.log("[Socket] Message created and will be emitted", { from: socket.userId, to, text, msgId: populatedMsg && populatedMsg._id });
       // Emit to recipient if online
