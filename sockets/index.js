@@ -12,7 +12,7 @@ module.exports = function setupSocket(server) {
     }
   });
 
-  // Store online users: { userId: socketId }
+  // Store online users: { userId: [socketId, ...] }
   const onlineUsers = {};
 
   io.on("connection", (socket) => {
@@ -25,8 +25,11 @@ module.exports = function setupSocket(server) {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         userId = decoded.id;
         socket.userId = userId; // Ensure socket.userId is always set if valid
-        onlineUsers[userId] = socket.id;
-        io.emit("user-online", { userId });
+        if (!onlineUsers[userId]) onlineUsers[userId] = [];
+        onlineUsers[userId].push(socket.id);
+        if (onlineUsers[userId].length === 1) {
+          io.emit("user-online", { userId });
+        }
         console.log(`[Socket] Authenticated and online: userId=${userId}, socketId=${socket.id}`);
       } catch (err) {
         console.warn("[Socket] Invalid token, disconnecting", { error: err.message });
