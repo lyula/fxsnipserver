@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const http = require("http");
 const app = express();
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/user");
@@ -31,4 +32,10 @@ app.all('/debug-headers', (req, res) => {
   res.json({ headers: req.headers });
 });
 
-module.exports = app;
+// --- SOCKET.IO SETUP ---
+const server = http.createServer(app);
+const setupSocket = require("./sockets");
+setupSocket(server);
+// --- END SOCKET.IO SETUP ---
+
+module.exports = { app, server };

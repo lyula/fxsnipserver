@@ -1,5 +1,5 @@
 ﻿require("dotenv").config();
-const { server } = require("./socket");
+const { app, server } = require("./app");
 const connectDB = require("./config/db");
 const cron = require('node-cron');
 const { expireOldBadgePayments } = require('./controllers/badgePaymentController');
