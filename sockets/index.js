@@ -23,11 +23,17 @@ module.exports = function setupSocket(server) {
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         userId = decoded.id;
+        socket.userId = userId; // Ensure socket.userId is always set if valid
         onlineUsers[userId] = socket.id;
         io.emit("user-online", { userId });
-      } catch (err) {}
+      } catch (err) {
+        socket.disconnect(); // Disconnect if token is invalid
+        return;
+      }
+    } else {
+      socket.disconnect(); // Disconnect if no token
+      return;
     }
-    if (userId) socket.userId = userId;
 
     // Register socket event handlers
     messagingSocket(io, socket, onlineUsers);
