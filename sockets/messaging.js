@@ -65,12 +65,10 @@ module.exports = function messagingSocket(io, socket, onlineUsers) {
   socket.on("typing", (data) => {
     const { to, conversationId } = data;
     if (!socket.userId || !to || !conversationId) return;
-    // Emit to recipient if online
-    if (onlineUsers[to]) {
-      const socketIds = Array.isArray(onlineUsers[to]) ? onlineUsers[to] : [onlineUsers[to]];
-      socketIds.forEach(socketId => {
-        io.to(socketId).emit("typing", { fromUserId: socket.userId, conversationId });
-      });
-    }
+    // Defensive: always treat onlineUsers[to] as an array
+    const socketIds = Array.isArray(onlineUsers[to]) ? onlineUsers[to] : onlineUsers[to] ? [onlineUsers[to]] : [];
+    socketIds.forEach(socketId => {
+      io.to(socketId).emit("typing", { fromUserId: socket.userId, conversationId });
+    });
   });
 };
