@@ -70,8 +70,16 @@ module.exports = function messagingSocket(io, socket, onlineUsers) {
       return;
     }
     // Defensive: always treat onlineUsers[to] as an array
-    const socketIds = Array.isArray(onlineUsers[to]) ? onlineUsers[to] : onlineUsers[to] ? [onlineUsers[to]] : [];
-    console.log('[Socket] typing event received:', { from: socket.userId, to, conversationId, socketIds });
+    let socketIds = [];
+    if (Array.isArray(onlineUsers[to])) {
+      socketIds = onlineUsers[to];
+    } else if (onlineUsers[to]) {
+      socketIds = [onlineUsers[to]];
+    }
+    console.log('[Socket] typing event received:', { from: socket.userId, to, conversationId, onlineUsersEntry: onlineUsers[to], socketIds });
+    if (socketIds.length === 0) {
+      console.warn('[Socket] No recipient sockets found for typing event', { to, onlineUsers });
+    }
     socketIds.forEach(socketId => {
       io.to(socketId).emit("typing", { conversationId, userId: socket.userId });
       console.log('[Socket] typing event emitted to:', { socketId, conversationId, userId: socket.userId });
