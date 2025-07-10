@@ -60,4 +60,17 @@ module.exports = function messagingSocket(io, socket, onlineUsers) {
       console.error("[Socket] Error in seen handler:", err);
     }
   });
+
+  // --- Handle typing status ---
+  socket.on("typing", (data) => {
+    const { to, conversationId } = data;
+    if (!socket.userId || !to || !conversationId) return;
+    // Emit to recipient if online
+    if (onlineUsers[to]) {
+      const socketIds = Array.isArray(onlineUsers[to]) ? onlineUsers[to] : [onlineUsers[to]];
+      socketIds.forEach(socketId => {
+        io.to(socketId).emit("typing", { from: socket.userId, conversationId });
+      });
+    }
+  });
 };
