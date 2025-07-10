@@ -84,6 +84,8 @@ module.exports = function messagingSocket(io, socket, onlineUsers) {
       io.to(socketId).emit("typing", { conversationId, userId: socket.userId });
       console.log('[Socket] typing event emitted to:', { socketId, conversationId, userId: socket.userId });
     });
+    // Extra debug: print all onlineUsers mapping
+    console.log('[Socket] FULL onlineUsers mapping:', JSON.stringify(onlineUsers, null, 2));
   });
 
   // --- Handle stop-typing status ---
