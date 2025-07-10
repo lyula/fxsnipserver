@@ -17,10 +17,13 @@ module.exports = function messagingSocket(io, socket, onlineUsers) {
       // Save message to DB using shared logic
       const populatedMsg = await createMessage({ from: socket.userId, to, text });
       console.log("[Socket] Message created and will be emitted", { from: socket.userId, to, text, msgId: populatedMsg && populatedMsg._id });
-      // Emit to recipient if online
+      // Emit to recipient if online (support multiple sockets)
       if (onlineUsers[to]) {
-        io.to(onlineUsers[to]).emit("receiveMessage", populatedMsg);
-        console.log(`[Socket] Message emitted to recipient online: ${to} (socketId: ${onlineUsers[to]})`);
+        const socketIds = Array.isArray(onlineUsers[to]) ? onlineUsers[to] : [onlineUsers[to]];
+        socketIds.forEach(socketId => {
+          io.to(socketId).emit("receiveMessage", populatedMsg);
+        });
+        console.log(`[Socket] Message emitted to recipient online: ${to} (socketIds: ${socketIds})`);
       } else {
         console.log(`[Socket] Recipient offline: ${to}`);
       }
