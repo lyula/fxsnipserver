@@ -5,7 +5,8 @@ const MessageSchema = new mongoose.Schema({
   to: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   text: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
-  read: { type: Boolean, default: false }
+  read: { type: Boolean, default: false },
+  replyTo: { type: mongoose.Schema.Types.ObjectId, ref: "Message", default: null } // <-- Add replyTo field
 });
 
 // Add indexes for better performance

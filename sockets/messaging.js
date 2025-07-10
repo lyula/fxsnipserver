@@ -15,7 +15,7 @@ module.exports = function messagingSocket(io, socket, onlineUsers) {
         console.warn("[Socket] sendMessage: No userId on socket");
         return;
       }
-      const { to, text } = data;
+      const { to, text, replyTo } = data;
       if (!to || !text) {
         console.warn("[Socket] sendMessage: Missing 'to' or 'text'", { to, text });
         return;
@@ -23,7 +23,7 @@ module.exports = function messagingSocket(io, socket, onlineUsers) {
       // Generate conversationId
       const conversationId = getConversationId(socket.userId, to);
       // Save message to DB using shared logic
-      const populatedMsg = await createMessage({ from: socket.userId, to, text, conversationId });
+      const populatedMsg = await createMessage({ from: socket.userId, to, text, replyTo });
       console.log("[Socket] Message created and will be emitted", { from: socket.userId, to, text, msgId: populatedMsg && populatedMsg._id });
       // Emit to recipient if online (support multiple sockets)
       if (onlineUsers[to]) {

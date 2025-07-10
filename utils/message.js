@@ -4,12 +4,12 @@ const { encrypt, decrypt } = require("./encrypt");
 
 /**
  * Creates a message, encrypts the text, and returns the message with decrypted text for the client.
- * @param {Object} param0 - { from, to, text }
+ * @param {Object} param0 - { from, to, text, replyTo }
  * @returns {Promise<Object>} - The message object with decrypted text
  */
-async function createMessage({ from, to, text }) {
+async function createMessage({ from, to, text, replyTo }) {
   const encryptedText = encrypt(text);
-  const msg = await Message.create({ from, to, text: encryptedText });
+  const msg = await Message.create({ from, to, text: encryptedText, replyTo });
   const msgObj = msg.toObject();
   msgObj.text = text; // Return decrypted text for client
   return msgObj;

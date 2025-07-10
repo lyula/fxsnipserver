@@ -33,7 +33,7 @@ exports.updateBadgePricing = async (req, res) => {
 // Update USD/KES rate (cron job)
 exports.updateUsdToKes = async () => {
   try {
-    // Use a free forex API (e.g., exchangerate-api.com)
+    // Use a free forex API 
     const resp = await axios.get('https://open.er-api.com/v6/latest/USD');
     const rate = resp.data.rates.KES;
     if (rate) {
