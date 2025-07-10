@@ -17,20 +17,19 @@ async function syncFollowCounts(userId) {
 // Get profile
 router.get("/profile", requireAuth, async (req, res) => {
   const user = await User.findById(req.user.id)
-    .select("username email country countryFlag verified createdAt"); // <-- Add createdAt here
+    .select("username email country countryFlag verified createdAt profile"); // Include profile
   res.json(user);
 });
 
 // Update profile
 router.put("/profile", requireAuth, async (req, res) => {
-  const { username, email } = req.body;
-  
+  const { username, email, profile } = req.body;
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
     // Check if nothing has changed
-    if (username === user.username && email === user.email) {
+    if (username === user.username && email === user.email && !profile) {
       return res.status(400).json({ message: "No changes to save." });
     }
 
@@ -50,7 +49,6 @@ router.put("/profile", requireAuth, async (req, res) => {
             "Invalid username. Use 3-30 letters, numbers, underscores, or periods. Cannot be only numbers, start/end with period/underscore, contain '@', or have spaces."
         });
       }
-
       // Check for existing username (excluding current user)
       const usernameExists = await User.findOne({ 
         username: username, 
@@ -64,12 +62,15 @@ router.put("/profile", requireAuth, async (req, res) => {
     // Update fields
     user.username = username || user.username;
     user.email = email || user.email;
+    if (profile && typeof profile === "object") {
+      user.profile = { ...user.profile, ...profile };
+    }
     await user.save();
-    
     res.json({ 
       message: "Profile updated", 
       username: user.username, 
-      email: user.email 
+      email: user.email,
+      profile: user.profile
     });
   } catch (error) {
     console.error("Error updating profile:", error);
@@ -177,7 +178,8 @@ router.post("/unfollow/:id", requireAuth, async (req, res) => {
 
 // Get public profile by username
 router.get("/public/:username", async (req, res) => {
-  const user = await User.findOne({ username: req.params.username });
+  const user = await User.findOne({ username: req.params.username })
+    .select("_id username country countryFlag createdAt followers following verified profile followersHashed");
   if (!user) return res.status(404).json({ message: "User not found" });
 
   res.json({
@@ -189,7 +191,8 @@ router.get("/public/:username", async (req, res) => {
     followers: user.followers || 0,
     following: user.following || 0,
     verified: user.verified || false,
-    followersHashed: user.followersHashed || [], // <-- THIS IS REQUIRED
+    profile: user.profile || {},
+    followersHashed: user.followersHashed || [],
   });
 });
 

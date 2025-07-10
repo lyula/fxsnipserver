@@ -17,6 +17,13 @@ const userSchema = new mongoose.Schema({
   countryFlag: { type: String },
   verified: { type: Boolean, default: false },
   lastSeen: { type: Date, default: Date.now },
+  profile: {
+    profileImage: { type: String, default: "" },
+    bio: { type: String, default: "" },
+    website: { type: String, default: "" },
+    location: { type: String, default: "" },
+    // Add more profile fields as needed
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model("User", userSchema);
