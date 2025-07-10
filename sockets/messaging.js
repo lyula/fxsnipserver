@@ -67,6 +67,7 @@ module.exports = function messagingSocket(io, socket, onlineUsers) {
     if (!socket.userId || !to || !conversationId) return;
     // Defensive: always treat onlineUsers[to] as an array
     const socketIds = Array.isArray(onlineUsers[to]) ? onlineUsers[to] : onlineUsers[to] ? [onlineUsers[to]] : [];
+    console.log('[Socket] typing event received:', { from: socket.userId, to, conversationId, socketIds });
     socketIds.forEach(socketId => {
       io.to(socketId).emit("typing", { conversationId, userId: socket.userId });
     });
