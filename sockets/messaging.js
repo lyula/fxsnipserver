@@ -68,7 +68,7 @@ module.exports = function messagingSocket(io, socket, onlineUsers) {
     // Defensive: always treat onlineUsers[to] as an array
     const socketIds = Array.isArray(onlineUsers[to]) ? onlineUsers[to] : onlineUsers[to] ? [onlineUsers[to]] : [];
     socketIds.forEach(socketId => {
-      io.to(socketId).emit("typing", { fromUserId: socket.userId, conversationId });
+      io.to(socketId).emit("typing", { conversationId, userId: socket.userId });
     });
   });
 };
