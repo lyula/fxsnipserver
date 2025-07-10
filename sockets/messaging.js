@@ -69,7 +69,7 @@ module.exports = function messagingSocket(io, socket, onlineUsers) {
     if (onlineUsers[to]) {
       const socketIds = Array.isArray(onlineUsers[to]) ? onlineUsers[to] : [onlineUsers[to]];
       socketIds.forEach(socketId => {
-        io.to(socketId).emit("typing", { from: socket.userId, conversationId });
+        io.to(socketId).emit("typing", { fromUserId: socket.userId, conversationId });
       });
     }
   });
