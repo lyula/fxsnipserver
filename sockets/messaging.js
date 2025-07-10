@@ -63,13 +63,34 @@ module.exports = function messagingSocket(io, socket, onlineUsers) {
 
   // --- Handle typing status ---
   socket.on("typing", (data) => {
-    const { to, conversationId } = data;
-    if (!socket.userId || !to || !conversationId) return;
+    console.log('[Socket] typing event RAW data:', data, 'socket.userId:', socket.userId);
+    const { to, conversationId } = data || {};
+    if (!socket.userId || !to || !conversationId) {
+      console.warn('[Socket] typing event missing required fields', { userId: socket.userId, to, conversationId, data });
+      return;
+    }
     // Defensive: always treat onlineUsers[to] as an array
     const socketIds = Array.isArray(onlineUsers[to]) ? onlineUsers[to] : onlineUsers[to] ? [onlineUsers[to]] : [];
     console.log('[Socket] typing event received:', { from: socket.userId, to, conversationId, socketIds });
     socketIds.forEach(socketId => {
       io.to(socketId).emit("typing", { conversationId, userId: socket.userId });
+      console.log('[Socket] typing event emitted to:', { socketId, conversationId, userId: socket.userId });
+    });
+  });
+
+  // --- Handle stop-typing status ---
+  socket.on("stop-typing", (data) => {
+    console.log('[Socket] stop-typing event RAW data:', data, 'socket.userId:', socket.userId);
+    const { to, conversationId } = data || {};
+    if (!socket.userId || !to || !conversationId) {
+      console.warn('[Socket] stop-typing event missing required fields', { userId: socket.userId, to: to, conversationId: conversationId, data: data });
+      return;
+    }
+    const socketIds = Array.isArray(onlineUsers[to]) ? onlineUsers[to] : onlineUsers[to] ? [onlineUsers[to]] : [];
+    console.log('[Socket] stop-typing event received:', { from: socket.userId, to, conversationId, socketIds });
+    socketIds.forEach(socketId => {
+      io.to(socketId).emit("stop-typing", { conversationId, userId: socket.userId });
+      console.log('[Socket] stop-typing event emitted to:', { socketId, conversationId, userId: socket.userId });
     });
   });
 };
