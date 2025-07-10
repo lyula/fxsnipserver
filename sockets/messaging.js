@@ -1,6 +1,12 @@
 // Handles real-time messaging events for socket.io
 const { createMessage } = require("../utils/message");
 
+// Helper to generate a unique conversationId for 1:1 chats
+function getConversationId(userId1, userId2) {
+  // Sort IDs to ensure the same ID for both directions
+  return [userId1, userId2].sort().join(":");
+}
+
 module.exports = function messagingSocket(io, socket, onlineUsers) {
   socket.on("sendMessage", async (data) => {
     console.log("[Socket] sendMessage event received", { userId: socket.userId, data });
@@ -14,21 +20,23 @@ module.exports = function messagingSocket(io, socket, onlineUsers) {
         console.warn("[Socket] sendMessage: Missing 'to' or 'text'", { to, text });
         return;
       }
+      // Generate conversationId
+      const conversationId = getConversationId(socket.userId, to);
       // Save message to DB using shared logic
-      const populatedMsg = await createMessage({ from: socket.userId, to, text });
+      const populatedMsg = await createMessage({ from: socket.userId, to, text, conversationId });
       console.log("[Socket] Message created and will be emitted", { from: socket.userId, to, text, msgId: populatedMsg && populatedMsg._id });
       // Emit to recipient if online (support multiple sockets)
       if (onlineUsers[to]) {
         const socketIds = Array.isArray(onlineUsers[to]) ? onlineUsers[to] : [onlineUsers[to]];
         socketIds.forEach(socketId => {
-          io.to(socketId).emit("receiveMessage", populatedMsg);
+          io.to(socketId).emit("receiveMessage", { ...populatedMsg, conversationId });
         });
         console.log(`[Socket] Message emitted to recipient online: ${to} (socketIds: ${socketIds})`);
       } else {
         console.log(`[Socket] Recipient offline: ${to}`);
       }
       // Emit to sender (for optimistic update)
-      socket.emit("receiveMessage", populatedMsg);
+      socket.emit("receiveMessage", { ...populatedMsg, conversationId });
       console.log(`[Socket] Message emitted to sender: ${socket.userId}`);
     } catch (err) {
       console.error("[Socket] Error in sendMessage:", err);
@@ -38,7 +46,10 @@ module.exports = function messagingSocket(io, socket, onlineUsers) {
   // --- Handle seen receipts ---
   socket.on("seen", async (data) => {
     try {
-      const { conversationId, messageIds } = data;
+      let { conversationId, messageIds, to } = data;
+      if (!conversationId && to) {
+        conversationId = getConversationId(socket.userId, to);
+      }
       if (!socket.userId || !conversationId || !Array.isArray(messageIds) || messageIds.length === 0) return;
       // Update messages as read in DB
       const Message = require("../models/Message");
@@ -47,10 +58,10 @@ module.exports = function messagingSocket(io, socket, onlineUsers) {
         { $set: { read: true } }
       );
       // Emit to the other user (sender) that these messages were seen
-      if (onlineUsers[conversationId]) {
-        const socketIds = Array.isArray(onlineUsers[conversationId]) ? onlineUsers[conversationId] : [onlineUsers[conversationId]];
+      if (onlineUsers[to]) {
+        const socketIds = Array.isArray(onlineUsers[to]) ? onlineUsers[to] : [onlineUsers[to]];
         socketIds.forEach(socketId => {
-          io.to(socketId).emit("messagesSeen", { conversationId: socket.userId, messageIds });
+          io.to(socketId).emit("messagesSeen", { conversationId, messageIds });
         });
       }
       // Optionally, emit to self for instant UI update
@@ -64,7 +75,10 @@ module.exports = function messagingSocket(io, socket, onlineUsers) {
   // --- Handle typing status ---
   socket.on("typing", (data) => {
     console.log('[Socket] typing event RAW data:', data, 'socket.userId:', socket.userId);
-    const { to, conversationId } = data || {};
+    let { to, conversationId } = data || {};
+    if (!conversationId && to) {
+      conversationId = getConversationId(socket.userId, to);
+    }
     if (!socket.userId || !to || !conversationId) {
       console.warn('[Socket] typing event missing required fields', { userId: socket.userId, to, conversationId, data });
       return;
@@ -91,7 +105,10 @@ module.exports = function messagingSocket(io, socket, onlineUsers) {
   // --- Handle stop-typing status ---
   socket.on("stop-typing", (data) => {
     console.log('[Socket] stop-typing event RAW data:', data, 'socket.userId:', socket.userId);
-    const { to, conversationId } = data || {};
+    let { to, conversationId } = data || {};
+    if (!conversationId && to) {
+      conversationId = getConversationId(socket.userId, to);
+    }
     if (!socket.userId || !to || !conversationId) {
       console.warn('[Socket] stop-typing event missing required fields', { userId: socket.userId, to: to, conversationId: conversationId, data: data });
       return;
