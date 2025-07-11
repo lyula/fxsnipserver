@@ -19,6 +19,7 @@ const userSchema = new mongoose.Schema({
   lastSeen: { type: Date, default: Date.now },
   profile: {
     profileImage: { type: String, default: "" },
+    profileImagePublicId: { type: String, default: "" }, // Store Cloudinary public ID
     bio: { type: String, default: "" },
     website: { type: String, default: "" },
     location: { type: String, default: "" },

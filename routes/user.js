@@ -63,7 +63,14 @@ router.put("/profile", requireAuth, async (req, res) => {
     user.username = username || user.username;
     user.email = email || user.email;
     if (profile && typeof profile === "object") {
-      user.profile = { ...user.profile, ...profile };
+      // Only update allowed profile fields
+      user.profile = {
+        ...user.profile,
+        ...profile,
+        // If profileImage and profileImagePublicId are provided, update them
+        ...(profile.profileImage && { profileImage: profile.profileImage }),
+        ...(profile.profileImagePublicId && { profileImagePublicId: profile.profileImagePublicId })
+      };
     }
     await user.save();
     res.json({ 
