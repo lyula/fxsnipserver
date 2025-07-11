@@ -89,18 +89,18 @@ exports.getPosts = async (req, res) => {
     const posts = await Post.find(query)
       .populate({
         path: "author",
-        select: "username verified profileImage profileImagePublicId countryFlag"
+        select: "username verified countryFlag profile"
       })
       .populate({
         path: "comments",
         populate: {
           path: "author",
-          select: "username verified profileImage profileImagePublicId"
+          select: "username verified profile"
         }
       })
       .populate({
         path: "comments.replies.author",
-        select: "username verified profileImage profileImagePublicId"
+        select: "username verified profile"
       })
       .sort(sortOptions)
       .lean(); // Use lean for better performance
@@ -320,18 +320,18 @@ exports.getFollowingPosts = async (req, res) => {
     const posts = await Post.find(query)
       .populate({
         path: "author",
-        select: "username verified profileImage profileImagePublicId countryFlag"
+        select: "username verified countryFlag profile"
       })
       .populate({
         path: "comments",
         populate: {
           path: "author",
-          select: "username verified profileImage profileImagePublicId"
+          select: "username verified profile"
         }
       })
       .populate({
         path: "comments.replies.author",
-        select: "username verified profileImage profileImagePublicId"
+        select: "username verified profile"
       })
       .sort(sortOptions)
       .lean(); // Use lean for better performance
