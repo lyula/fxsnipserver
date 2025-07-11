@@ -28,7 +28,10 @@ exports.createPost = async (req, res) => {
     await createMentionNotifications(content, req.user.id, req.user.username, post._id);
     
     // Populate author before sending response
-    await post.populate("author", "username verified");
+    await post.populate({
+      path: "author",
+      select: "username verified profileImage profileImagePublicId countryFlag"
+    });
     res.status(201).json(post);
   } catch (error) {
     res.status(500).json({ error: "Failed to create post" });
@@ -84,17 +87,20 @@ exports.getPosts = async (req, res) => {
 
     // Get posts with populated fields
     const posts = await Post.find(query)
-      .populate("author", "username verified countryFlag")
+      .populate({
+        path: "author",
+        select: "username verified profileImage profileImagePublicId countryFlag"
+      })
       .populate({
         path: "comments",
         populate: {
           path: "author",
-          select: "username verified"
+          select: "username verified profileImage profileImagePublicId"
         }
       })
       .populate({
-        path: "comments.replies.author", 
-        select: "username verified"
+        path: "comments.replies.author",
+        select: "username verified profileImage profileImagePublicId"
       })
       .sort(sortOptions)
       .lean(); // Use lean for better performance
@@ -312,17 +318,20 @@ exports.getFollowingPosts = async (req, res) => {
 
     // Get posts with populated fields
     const posts = await Post.find(query)
-      .populate("author", "username verified countryFlag")
+      .populate({
+        path: "author",
+        select: "username verified profileImage profileImagePublicId countryFlag"
+      })
       .populate({
         path: "comments",
         populate: {
           path: "author",
-          select: "username verified"
+          select: "username verified profileImage profileImagePublicId"
         }
       })
       .populate({
-        path: "comments.replies.author", 
-        select: "username verified"
+        path: "comments.replies.author",
+        select: "username verified profileImage profileImagePublicId"
       })
       .sort(sortOptions)
       .lean(); // Use lean for better performance
@@ -454,9 +463,9 @@ exports.likePost = async (req, res) => {
 
     // Populate author fields for response
     await post.populate([
-      { path: "author", select: "username verified" },
-      { path: "comments.author", select: "username verified" },
-      { path: "comments.replies.author", select: "username verified" }
+      { path: "author", select: "username verified profileImage profileImagePublicId countryFlag" },
+      { path: "comments.author", select: "username verified profileImage profileImagePublicId" },
+      { path: "comments.replies.author", select: "username verified profileImage profileImagePublicId" }
     ]);
 
     res.status(200).json(post);
@@ -498,9 +507,9 @@ exports.addComment = async (req, res) => {
 
     // Populate author for the response
     await post.populate([
-      { path: "author", select: "username verified" },
-      { path: "comments.author", select: "username verified" },
-      { path: "comments.replies.author", select: "username verified" }
+      { path: "author", select: "username verified profileImage profileImagePublicId countryFlag" },
+      { path: "comments.author", select: "username verified profileImage profileImagePublicId" },
+      { path: "comments.replies.author", select: "username verified profileImage profileImagePublicId" }
     ]);
 
     res.status(201).json(post);
@@ -545,9 +554,9 @@ exports.likeComment = async (req, res) => {
 
     // Populate author fields for response using modern populate method
     await post.populate([
-      { path: "comments.author", select: "username verified" },
-      { path: "comments.replies.author", select: "username verified" },
-      { path: "author", select: "username verified" }
+      { path: "comments.author", select: "username verified profileImage profileImagePublicId" },
+      { path: "comments.replies.author", select: "username verified profileImage profileImagePublicId" },
+      { path: "author", select: "username verified profileImage profileImagePublicId countryFlag" }
     ]);
 
     res.status(200).json(post);
@@ -597,9 +606,9 @@ exports.likeReply = async (req, res) => {
 
     // Populate author fields for response using modern populate method
     await post.populate([
-      { path: "comments.author", select: "username verified" },
-      { path: "comments.replies.author", select: "username verified" },
-      { path: "author", select: "username verified" }
+      { path: "comments.author", select: "username verified profileImage profileImagePublicId" },
+      { path: "comments.replies.author", select: "username verified profileImage profileImagePublicId" },
+      { path: "author", select: "username verified profileImage profileImagePublicId countryFlag" }
     ]);
 
     res.status(200).json(post);
@@ -645,9 +654,9 @@ exports.addReply = async (req, res) => {
 
     // Populate author fields for response
     await post.populate([
-      { path: "comments.author", select: "username verified" },
-      { path: "comments.replies.author", select: "username verified" },
-      { path: "author", select: "username verified" }
+      { path: "comments.author", select: "username verified profileImage profileImagePublicId countryFlag" },
+      { path: "comments.replies.author", select: "username verified profileImage profileImagePublicId" },
+      { path: "author", select: "username verified profileImage profileImagePublicId countryFlag" }
     ]);
     
     res.status(201).json(post);
@@ -716,9 +725,9 @@ exports.editPost = async (req, res) => {
     
     // Populate author fields for response
     await post.populate([
-      { path: "author", select: "username verified" },
-      { path: "comments.author", select: "username verified" },
-      { path: "comments.replies.author", select: "username verified" }
+      { path: "author", select: "username verified profileImage profileImagePublicId countryFlag" },
+      { path: "comments.author", select: "username verified profileImage profileImagePublicId" },
+      { path: "comments.replies.author", select: "username verified profileImage profileImagePublicId" }
     ]);
     
     res.status(200).json(post);
@@ -785,9 +794,9 @@ exports.editComment = async (req, res) => {
     
     // Populate author fields for response
     await post.populate([
-      { path: "comments.author", select: "username verified" },
-      { path: "comments.replies.author", select: "username verified" },
-      { path: "author", select: "username verified" }
+      { path: "comments.author", select: "username verified profileImage profileImagePublicId" },
+      { path: "comments.replies.author", select: "username verified profileImage profileImagePublicId" },
+      { path: "author", select: "username verified profileImage profileImagePublicId countryFlag" }
     ]);
     
     res.status(200).json(post);
@@ -822,9 +831,9 @@ exports.deleteComment = async (req, res) => {
     
     // Populate author fields for response
     await post.populate([
-      { path: "comments.author", select: "username verified" },
-      { path: "comments.replies.author", select: "username verified" },
-      { path: "author", select: "username verified" }
+      { path: "comments.author", select: "username verified profileImage profileImagePublicId" },
+      { path: "comments.replies.author", select: "username verified profileImage profileImagePublicId" },
+      { path: "author", select: "username verified profileImage profileImagePublicId countryFlag" }
     ]);
     
     res.status(200).json(post);
@@ -865,9 +874,9 @@ exports.editReply = async (req, res) => {
     
     // Populate author fields for response
     await post.populate([
-      { path: "comments.author", select: "username verified" },
-      { path: "comments.replies.author", select: "username verified" },
-      { path: "author", select: "username verified" }
+      { path: "comments.author", select: "username verified profileImage profileImagePublicId" },
+      { path: "comments.replies.author", select: "username verified profileImage profileImagePublicId" },
+      { path: "author", select: "username verified profileImage profileImagePublicId countryFlag" }
     ]);
     
     res.status(200).json(post);
@@ -907,9 +916,9 @@ exports.deleteReply = async (req, res) => {
     
     // Populate author fields for response
     await post.populate([
-      { path: "comments.author", select: "username verified" },
-      { path: "comments.replies.author", select: "username verified" },
-      { path: "author", select: "username verified" }
+      { path: "comments.author", select: "username verified profileImage profileImagePublicId" },
+      { path: "comments.replies.author", select: "username verified profileImage profileImagePublicId" },
+      { path: "author", select: "username verified profileImage profileImagePublicId countryFlag" }
     ]);
     
     res.status(200).json(post);
