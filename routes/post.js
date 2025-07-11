@@ -81,7 +81,11 @@ router.get("/user/:username", async (req, res) => {
 // Get posts by user ID (robust to username changes)
 router.get("/by-userid/:userId", async (req, res) => {
   try {
-    const posts = await Post.find({ author: req.params.userId }).populate("author", "username verified");
+    const posts = await Post.find({ author: req.params.userId })
+      .populate("author", "username verified profile.profileImage profile")
+      .populate("comments.author", "username verified profile.profileImage profile")
+      .populate("comments.replies.author", "username verified profile.profileImage profile")
+      .populate("likes", "username verified profile.profileImage profile");
     res.status(200).json(posts);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch user's posts" });
