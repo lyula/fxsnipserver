@@ -81,13 +81,33 @@ router.get("/user/:username", async (req, res) => {
 // Get posts by user ID (robust to username changes)
 router.get("/by-userid/:userId", async (req, res) => {
   try {
-    const posts = await Post.find({ author: req.params.userId })
+    let posts = await Post.find({ author: req.params.userId })
       .populate([
-        { path: "author", select: "username verified profile.profileImage profile" },
-        { path: "comments.author", select: "username verified profile.profileImage profile" },
-        { path: "comments.replies.author", select: "username verified profile.profileImage profile" },
-        { path: "likes", select: "username verified profile.profileImage profile" }
-      ]);
+        { path: "author", select: "username verified profile.profileImage" },
+        { path: "comments.author", select: "username verified profile.profileImage" },
+        { path: "likes", select: "username verified profile.profileImage" }
+      ])
+      .lean();
+
+    // Manually populate replies' authors
+    for (const post of posts) {
+      if (post.comments) {
+        for (const comment of post.comments) {
+          if (comment.replies && comment.replies.length > 0) {
+            const replyAuthorIds = comment.replies.map(r => r.author).filter(Boolean);
+            const replyAuthors = await User.find({ _id: { $in: replyAuthorIds } })
+              .select("username verified profile.profileImage")
+              .lean();
+            const authorMap = Object.fromEntries(replyAuthors.map(a => [a._id.toString(), a]));
+            comment.replies = comment.replies.map(reply => ({
+              ...reply,
+              author: authorMap[reply.author?.toString()] || reply.author
+            }));
+          }
+        }
+      }
+    }
+
     res.status(200).json(posts);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch user's posts", details: error.message });
