@@ -82,6 +82,7 @@ router.get("/", requireAuth, async (req, res) => {
       {
         $addFields: {
           profile: { $ifNull: ["$user.profile", { profileImage: "" }] },
+          profileImage: { $ifNull: ["$user.profile.profileImage", ""] },
           username: "$user.username",
           verified: "$user.verified",
           countryFlag: "$user.countryFlag"
