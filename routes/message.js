@@ -73,12 +73,19 @@ router.get("/", requireAuth, async (req, res) => {
           foreignField: "_id",
           as: "user",
           pipeline: [
-            { $project: { username: 1, countryFlag: 1, verified: 1, "profile.profileImage": 1 } }
+            { $project: { username: 1, countryFlag: 1, verified: 1, profile: 1 } }
           ]
         }
       },
+      { $unwind: "$user" },
+      // Ensure profile and user fields are always present for frontend
       {
-        $unwind: "$user"
+        $addFields: {
+          profile: { $ifNull: ["$user.profile", { profileImage: "" }] },
+          username: "$user.username",
+          verified: "$user.verified",
+          countryFlag: "$user.countryFlag"
+        }
       },
       {
         $sort: { "lastMessage.createdAt": -1 } // Sort conversations by last message time
