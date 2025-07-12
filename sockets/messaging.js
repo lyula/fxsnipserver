@@ -15,16 +15,17 @@ module.exports = function messagingSocket(io, socket, onlineUsers) {
         console.warn("[Socket] sendMessage: No userId on socket");
         return;
       }
-      const { to, text, replyTo } = data;
-      if (!to || !text) {
-        console.warn("[Socket] sendMessage: Missing 'to' or 'text'", { to, text });
+      const { to, text, replyTo, mediaUrl, mediaPublicId } = data;
+      if (!to || (!text && !mediaUrl)) {
+        console.warn("[Socket] sendMessage: Missing 'to', 'text', or 'mediaUrl'", { to, text, mediaUrl });
         return;
       }
       // Generate conversationId
       const conversationId = getConversationId(socket.userId, to);
       // Save message to DB using shared logic
-      const populatedMsg = await createMessage({ from: socket.userId, to, text, replyTo });
-      console.log("[Socket] Message created and will be emitted", { from: socket.userId, to, text, msgId: populatedMsg && populatedMsg._id });
+      console.log("[Socket] Creating message with:", { from: socket.userId, to, text, replyTo, mediaUrl, mediaPublicId });
+      const populatedMsg = await createMessage({ from: socket.userId, to, text, replyTo, mediaUrl, mediaPublicId });
+      console.log("[Socket] Message created and will be emitted", { from: socket.userId, to, text, mediaUrl, msgId: populatedMsg && populatedMsg._id });
       // Emit to recipient if online (support multiple sockets)
       if (onlineUsers[to]) {
         const socketIds = Array.isArray(onlineUsers[to]) ? onlineUsers[to] : [onlineUsers[to]];
