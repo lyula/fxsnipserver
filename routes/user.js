@@ -371,14 +371,13 @@ router.post("/profile-images", async (req, res) => {
     } else {
       return res.status(400).json({ message: "Provide userIds or usernames array." });
     }
-    const users = await User.find(query).select("_id username profile.profileImage").lean();
-    // Always return profileImage at root for convenience
-    const result = users.map(u => ({
-      _id: u._id,
-      username: u.username,
-      profileImage: u.profile?.profileImage || ""
-    }));
-    res.json({ users: result });
+    const users = await User.find(query).select("_id profile.profileImage").lean();
+    // Build mapping: { userId: profileImageUrl }
+    const images = {};
+    users.forEach(u => {
+      images[u._id] = u.profile?.profileImage || null;
+    });
+    res.json({ images });
   } catch (err) {
     console.error("Error fetching profile images:", err);
     res.status(500).json({ message: "Server error" });
