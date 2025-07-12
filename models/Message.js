@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const MessageSchema = new mongoose.Schema({
   from: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   to: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  text: { type: String, required: true },
+  text: { type: String, required: false, default: "" }, // Allow empty text for media-only messages
   mediaUrl: { type: String, default: null }, // URL to media file (image, video, etc.)
   mediaPublicId: { type: String, default: null }, // Cloudinary public_id for deletion
   createdAt: { type: Date, default: Date.now },
