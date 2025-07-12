@@ -969,7 +969,7 @@ exports.getPostLikes = async (req, res) => {
     const post = await Post.findById(postId)
       .populate({
         path: 'likes',
-        select: 'username verified',
+        select: 'username verified profile.profileImage',
         options: { limit: parseInt(limit) }
       })
       .select('likes');
