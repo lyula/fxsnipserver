@@ -9,10 +9,11 @@ const { createMessage } = require("../utils/message");
 
 // Send a message
 router.post("/", requireAuth, async (req, res) => {
-  const { to, text } = req.body;
-  if (!to || !text) return res.status(400).json({ message: "Recipient and text required." });
+  const { to, text, mediaUrl, mediaPublicId } = req.body;
+  if (!to || (!text && !mediaUrl)) return res.status(400).json({ message: "Recipient and text or media required." });
   try {
-    const msgObj = await createMessage({ from: req.user.id, to, text });
+    // Pass mediaUrl and mediaPublicId to createMessage
+    const msgObj = await createMessage({ from: req.user.id, to, text, mediaUrl, mediaPublicId });
     res.json(msgObj);
   } catch (err) {
     res.status(500).json({ message: "Failed to send message.", error: err.message });
