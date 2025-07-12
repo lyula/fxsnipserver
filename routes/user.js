@@ -359,4 +359,30 @@ router.get("/last-seen/:userId", async (req, res) => {
   }
 });
 
+// Get profile images for a list of usernames or user IDs
+router.post("/profile-images", async (req, res) => {
+  try {
+    const { userIds, usernames } = req.body;
+    let query = {};
+    if (Array.isArray(userIds) && userIds.length > 0) {
+      query._id = { $in: userIds };
+    } else if (Array.isArray(usernames) && usernames.length > 0) {
+      query.username = { $in: usernames };
+    } else {
+      return res.status(400).json({ message: "Provide userIds or usernames array." });
+    }
+    const users = await User.find(query).select("_id username profile.profileImage").lean();
+    // Always return profileImage at root for convenience
+    const result = users.map(u => ({
+      _id: u._id,
+      username: u.username,
+      profileImage: u.profile?.profileImage || ""
+    }));
+    res.json({ users: result });
+  } catch (err) {
+    console.error("Error fetching profile images:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 module.exports = router;
