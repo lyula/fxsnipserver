@@ -73,7 +73,7 @@ router.get("/", requireAuth, async (req, res) => {
           foreignField: "_id",
           as: "user",
           pipeline: [
-            { $project: { username: 1, countryFlag: 1, verified: 1 } }
+            { $project: { username: 1, countryFlag: 1, verified: 1, "profile.profileImage": 1 } }
           ]
         }
       },
