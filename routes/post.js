@@ -16,7 +16,8 @@ const {
   deleteComment,
   editReply,
   deleteReply,
-  getPostLikes
+  getPostLikes,
+  incrementShareCount // Import incrementShareCount
 } = require("../controllers/postController");
 const auth = require("../middleware/auth");
 const Post = require("../models/Post");
@@ -145,5 +146,8 @@ router.get("/:postId", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch post" });
   }
 });
+
+// Increment share count for a post (public, no auth required)
+router.post('/:postId/share', incrementShareCount);
 
 module.exports = router;

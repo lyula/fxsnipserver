@@ -688,6 +688,23 @@ exports.incrementPostViews = async (req, res) => {
   }
 };
 
+// Increment share count for a post
+exports.incrementShareCount = async (req, res) => {
+  try {
+    const post = await Post.findByIdAndUpdate(
+      req.params.postId,
+      { $inc: { shareCount: 1 } },
+      { new: true }
+    );
+    if (!post) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+    res.json({ shareCount: post.shareCount });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to increment share count" });
+  }
+};
+
 // Get notifications
 exports.getNotifications = async (req, res) => {
   try {
