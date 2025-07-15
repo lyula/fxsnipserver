@@ -1,3 +1,60 @@
+// Search posts by content or author username
+exports.searchPosts = async (req, res) => {
+  try {
+    const { q = "", limit = 20, offset = 0 } = req.query;
+    if (!q.trim()) {
+      return res.status(200).json({ posts: [], hasMore: false, totalAvailablePosts: 0, nextOffset: offset });
+    }
+
+    // Find users whose username matches the query (case-insensitive)
+    const User = require("../models/User");
+    const userMatches = await User.find({ username: { $regex: q, $options: "i" } }).select("_id");
+    const userIds = userMatches.map(u => u._id);
+
+    // Find posts where content matches or author is a matching user
+    const Post = require("../models/Post");
+    const query = {
+      $or: [
+        { content: { $regex: q, $options: "i" } },
+        { author: { $in: userIds } }
+      ]
+    };
+
+    const posts = await Post.find(query)
+      .populate({
+        path: "author",
+        select: "username verified countryFlag profile"
+      })
+      .populate({
+        path: "comments",
+        populate: {
+          path: "author",
+          select: "username verified profile"
+        }
+      })
+      .populate({
+        path: "comments.replies.author",
+        select: "username verified profile"
+      })
+      .sort({ createdAt: -1 })
+      .skip(parseInt(offset))
+      .limit(parseInt(limit))
+      .lean();
+
+    const totalAvailablePosts = await Post.countDocuments(query);
+    const hasMore = (parseInt(offset) + posts.length) < totalAvailablePosts;
+
+    res.status(200).json({
+      posts,
+      hasMore,
+      totalAvailablePosts,
+      nextOffset: parseInt(offset) + posts.length
+    });
+  } catch (error) {
+    console.error("Error searching posts:", error);
+    res.status(500).json({ error: "Failed to search posts", details: error.message });
+  }
+};
 const Post = require("../models/Post");
 const Notification = require("../models/Notification");
 const cloudinary = require('cloudinary').v2;

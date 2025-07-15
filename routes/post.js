@@ -115,6 +115,10 @@ router.get("/by-userid/:userId", async (req, res) => {
   }
 });
 
+
+// Search posts by content or author username
+router.get("/search", auth, require("../controllers/postController").searchPosts);
+
 // Get posts from followed users
 router.get("/following", auth, getFollowingPosts);
 
