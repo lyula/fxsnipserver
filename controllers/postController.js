@@ -6,9 +6,16 @@ exports.searchPosts = async (req, res) => {
       return res.status(200).json({ posts: [], hasMore: false, totalAvailablePosts: 0, nextOffset: offset });
     }
 
-    // Find users whose username matches the query (case-insensitive)
+    // Find users whose username, display name, or profile name matches the query (case-insensitive)
     const User = require("../models/User");
-    const userMatches = await User.find({ username: { $regex: q, $options: "i" } }).select("_id");
+    const userMatches = await User.find({
+      $or: [
+        { username: { $regex: q, $options: "i" } },
+        { name: { $regex: q, $options: "i" } },
+        { displayName: { $regex: q, $options: "i" } },
+        { "profile.name": { $regex: q, $options: "i" } },
+      ]
+    }).select("_id");
     const userIds = userMatches.map(u => u._id);
 
     // Find posts where content matches or author is a matching user
