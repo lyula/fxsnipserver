@@ -10,7 +10,7 @@ cloudinary.config({
 // Update a journal entry
 exports.updateEntry = async (req, res) => {
   try {
-    const entry = await JournalEntry.findOne({ _id: req.params.id, userId: req.user._id });
+    const entry = await JournalEntry.findOne({ _id: req.params.id, userId: req.user.id });
     if (!entry) return res.status(404).json({ error: 'Entry not found' });
     // Update outcome and after-trade files
     if (req.body.outcome) entry.outcome = req.body.outcome;
