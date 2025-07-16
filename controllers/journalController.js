@@ -12,9 +12,29 @@ exports.updateEntry = async (req, res) => {
   try {
     const entry = await JournalEntry.findOne({ _id: req.params.id, userId: req.user.id });
     if (!entry) return res.status(404).json({ error: 'Entry not found' });
+
+    // Helper to check if two dates are the same calendar day
+    function isSameDay(d1, d2) {
+      return d1.getFullYear() === d2.getFullYear() &&
+        d1.getMonth() === d2.getMonth() &&
+        d1.getDate() === d2.getDate();
+    }
+
+    // Determine last edit date for after-trade fields
+    // Use entry.date for first edit, or entry.afterTradeLastEdit if present
+    const now = new Date();
+    const lastEdit = entry.afterTradeLastEdit ? new Date(entry.afterTradeLastEdit) : new Date(entry.date);
+
+    // If any after-trade fields are being updated, enforce same-day rule
+    const updatingAfterFields = req.body.outcome || req.body.timeAfterPlayout || (req.files && (req.files.afterScreenshot || req.files.afterScreenRecording));
+    if (updatingAfterFields && !isSameDay(now, lastEdit)) {
+      return res.status(403).json({ error: 'After-trade fields can only be updated on the same day as the last edit.' });
+    }
+
     // Update outcome and after-trade files
-    if (req.body.outcome) entry.outcome = req.body.outcome;
-    if (req.body.timeAfterPlayout) entry.timeAfterPlayout = req.body.timeAfterPlayout;
+    let afterTradeEdited = false;
+    if (req.body.outcome) { entry.outcome = req.body.outcome; afterTradeEdited = true; }
+    if (req.body.timeAfterPlayout) { entry.timeAfterPlayout = req.body.timeAfterPlayout; afterTradeEdited = true; }
     if (req.files) {
       if (req.files.afterScreenshot) {
         const result = await cloudinary.uploader.upload(
@@ -22,6 +42,7 @@ exports.updateEntry = async (req, res) => {
           { folder: 'journals', resource_type: 'image' }
         );
         entry.afterScreenshot = { url: result.secure_url, publicId: result.public_id };
+        afterTradeEdited = true;
       }
       if (req.files.afterScreenRecording) {
         const result = await cloudinary.uploader.upload(
@@ -29,7 +50,12 @@ exports.updateEntry = async (req, res) => {
           { folder: 'journals', resource_type: 'video' }
         );
         entry.afterScreenRecording = { url: result.secure_url, publicId: result.public_id };
+        afterTradeEdited = true;
       }
+    }
+    // If any after-trade fields were edited, update last edit timestamp
+    if (afterTradeEdited) {
+      entry.afterTradeLastEdit = now;
     }
     await entry.save();
     res.json(entry);
