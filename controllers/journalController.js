@@ -67,19 +67,32 @@ exports.updateEntry = async (req, res) => {
 // Delete a journal entry and its files from Cloudinary
 exports.deleteEntry = async (req, res) => {
   try {
+    console.log('DeleteEntry called for id:', req.params.id, 'user:', req.user.id);
     const entry = await JournalEntry.findOne({ _id: req.params.id, userId: req.user.id });
-    if (!entry) return res.status(404).json({ error: 'Entry not found' });
+    if (!entry) {
+      console.log('DeleteEntry: Entry not found for id:', req.params.id, 'user:', req.user.id);
+      return res.status(404).json({ error: 'Entry not found' });
+    }
     const cloudinary = require('cloudinary').v2;
     // Remove files from Cloudinary if publicId exists
     const fileFields = ['beforeScreenshot', 'afterScreenshot', 'beforeScreenRecording', 'afterScreenRecording'];
     for (const field of fileFields) {
       if (entry[field] && entry[field].publicId) {
-        await cloudinary.uploader.destroy(entry[field].publicId, { resource_type: field.includes('Recording') ? 'video' : 'image' });
+        try {
+          const resourceType = field.includes('Recording') ? 'video' : 'image';
+          console.log(`Deleting Cloudinary file for field ${field}:`, entry[field].publicId, 'resourceType:', resourceType);
+          const result = await cloudinary.uploader.destroy(entry[field].publicId, { resource_type: resourceType });
+          console.log('Cloudinary destroy result:', result);
+        } catch (cloudErr) {
+          console.error(`Error deleting Cloudinary file for field ${field}:`, cloudErr);
+        }
       }
     }
     await entry.deleteOne();
+    console.log('DeleteEntry: Entry deleted for id:', req.params.id);
     res.json({ success: true });
   } catch (err) {
+    console.error('DeleteEntry error:', err);
     res.status(500).json({ error: err.message });
   }
 };
