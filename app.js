@@ -13,7 +13,7 @@ const journalRoutes = require("./routes/journal");
 
 require('dotenv').config();
 const allowedOrigins = [
-  process.env.BASE_URL,
+  process.env.CLIENT_URL,
   'http://localhost:5173'
 ].filter(Boolean);
 app.use(cors({

@@ -1,5 +1,11 @@
 const JournalEntry = require('../models/JournalEntry');
-const cloudinaryUpload = require('../utils/cloudinaryUpload');
+const cloudinary = require('cloudinary').v2;
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 // Update a journal entry
 exports.updateEntry = async (req, res) => {
@@ -10,19 +16,19 @@ exports.updateEntry = async (req, res) => {
     if (req.body.outcome) entry.outcome = req.body.outcome;
     if (req.body.timeAfterPlayout) entry.timeAfterPlayout = req.body.timeAfterPlayout;
     if (req.files) {
-      const uploadToCloudinary = async (file, folder) => {
-        if (!file) return null;
-        const result = await cloudinaryUpload(file.path, folder);
-        return {
-          url: result.secure_url,
-          publicId: result.public_id
-        };
-      };
       if (req.files.afterScreenshot) {
-        entry.afterScreenshot = await uploadToCloudinary(req.files.afterScreenshot[0], 'journals');
+        const result = await cloudinary.uploader.upload(
+          req.files.afterScreenshot[0].path,
+          { folder: 'journals', resource_type: 'image' }
+        );
+        entry.afterScreenshot = { url: result.secure_url, publicId: result.public_id };
       }
       if (req.files.afterScreenRecording) {
-        entry.afterScreenRecording = await uploadToCloudinary(req.files.afterScreenRecording[0], 'journals');
+        const result = await cloudinary.uploader.upload(
+          req.files.afterScreenRecording[0].path,
+          { folder: 'journals', resource_type: 'video' }
+        );
+        entry.afterScreenRecording = { url: result.secure_url, publicId: result.public_id };
       }
     }
     await entry.save();
@@ -70,19 +76,19 @@ exports.createEntry = async (req, res) => {
     };
     // Handle file uploads (before trade only)
     if (req.files) {
-      const uploadToCloudinary = async (file, folder) => {
-        if (!file) return null;
-        const result = await cloudinaryUpload(file.path, folder);
-        return {
-          url: result.secure_url,
-          publicId: result.public_id
-        };
-      };
       if (req.files.beforeScreenshot) {
-        entryData.beforeScreenshot = await uploadToCloudinary(req.files.beforeScreenshot[0], 'journals');
+        const result = await cloudinary.uploader.upload(
+          req.files.beforeScreenshot[0].path,
+          { folder: 'journals', resource_type: 'image' }
+        );
+        entryData.beforeScreenshot = { url: result.secure_url, publicId: result.public_id };
       }
       if (req.files.beforeScreenRecording) {
-        entryData.beforeScreenRecording = await uploadToCloudinary(req.files.beforeScreenRecording[0], 'journals');
+        const result = await cloudinary.uploader.upload(
+          req.files.beforeScreenRecording[0].path,
+          { folder: 'journals', resource_type: 'video' }
+        );
+        entryData.beforeScreenRecording = { url: result.secure_url, publicId: result.public_id };
       }
     }
     const entry = new JournalEntry(entryData);
