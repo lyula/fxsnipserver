@@ -31,10 +31,22 @@ exports.updateEntry = async (req, res) => {
       return res.status(403).json({ error: 'After-trade fields can only be updated on the same day as the last edit.' });
     }
 
-    // Update outcome and after-trade files
+    // Update outcome and after-trade files/fields
     let afterTradeEdited = false;
     if (req.body.outcome) { entry.outcome = req.body.outcome; afterTradeEdited = true; }
     if (req.body.timeAfterPlayout) { entry.timeAfterPlayout = req.body.timeAfterPlayout; afterTradeEdited = true; }
+
+    // Accept afterScreenshot and afterScreenRecording from JSON (frontend)
+    if (req.body.afterScreenshot && typeof req.body.afterScreenshot === 'object') {
+      entry.afterScreenshot = req.body.afterScreenshot;
+      afterTradeEdited = true;
+    }
+    if (req.body.afterScreenRecording && typeof req.body.afterScreenRecording === 'object') {
+      entry.afterScreenRecording = req.body.afterScreenRecording;
+      afterTradeEdited = true;
+    }
+
+    // Accept file uploads (if present)
     if (req.files) {
       if (req.files.afterScreenshot) {
         const result = await cloudinary.uploader.upload(
