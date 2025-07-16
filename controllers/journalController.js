@@ -61,9 +61,15 @@ exports.deleteEntry = async (req, res) => {
 // Create a new journal entry
 exports.createEntry = async (req, res) => {
   try {
+    // Debug logs for troubleshooting
+    console.log('Journal createEntry req.body:', req.body);
+    console.log('type:', req.body.type);
+    console.log('strategy:', req.body.strategy);
+    console.log('emotions:', req.body.emotions);
     // Accept all fields as JSON, including file URLs/publicIds
     const { type, strategy, emotions, confluences, beforeScreenshot, afterScreenshot, beforeScreenRecording, afterScreenRecording, outcome, timeEntered, timeAfterPlayout } = req.body;
     if (!type || !strategy || !emotions) {
+      console.log('Missing required fields:', { type, strategy, emotions });
       return res.status(400).json({ error: 'Trade Type, Strategy, and Emotions are required.' });
     }
     const entryData = {
@@ -85,6 +91,7 @@ exports.createEntry = async (req, res) => {
     await entry.save();
     res.status(201).json(entry);
   } catch (err) {
+    console.log('Journal createEntry error:', err);
     res.status(400).json({ error: err.message });
   }
 };
