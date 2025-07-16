@@ -22,7 +22,7 @@ const JournalEntrySchema = new mongoose.Schema({
     url: String,
     publicId: String
   },
-  outcome: { type: String, enum: ['Profit', 'Loss'], default: '' },
+  outcome: { type: String, enum: ['', 'Profit', 'Loss'], default: '' },
   timeEntered: Date,
   timeAfterPlayout: Date,
   date: { type: Date, default: Date.now }
