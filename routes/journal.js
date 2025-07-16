@@ -7,12 +7,7 @@ const auth = require('../middleware/auth');
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
 
-router.post('/', auth, upload.fields([
-  { name: 'beforeScreenshot', maxCount: 1 },
-  { name: 'afterScreenshot', maxCount: 1 },
-  { name: 'beforeScreenRecording', maxCount: 1 },
-  { name: 'afterScreenRecording', maxCount: 1 },
-]), journalController.createEntry);
+router.post('/', auth, journalController.createEntry);
 
 router.get('/', auth, journalController.getEntries);
 

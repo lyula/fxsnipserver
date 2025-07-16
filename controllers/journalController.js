@@ -61,8 +61,8 @@ exports.deleteEntry = async (req, res) => {
 // Create a new journal entry
 exports.createEntry = async (req, res) => {
   try {
-    // Only require initial fields
-    const { type, strategy, emotions, confluences } = req.body;
+    // Accept all fields as JSON, including file URLs/publicIds
+    const { type, strategy, emotions, confluences, beforeScreenshot, afterScreenshot, beforeScreenRecording, afterScreenRecording, outcome, timeEntered, timeAfterPlayout } = req.body;
     if (!type || !strategy || !emotions) {
       return res.status(400).json({ error: 'Trade Type, Strategy, and Emotions are required.' });
     }
@@ -71,26 +71,16 @@ exports.createEntry = async (req, res) => {
       strategy,
       emotions,
       confluences,
+      beforeScreenshot,
+      afterScreenshot,
+      beforeScreenRecording,
+      afterScreenRecording,
+      outcome,
+      timeEntered,
+      timeAfterPlayout,
       userId: req.user._id,
       date: new Date(),
     };
-    // Handle file uploads (before trade only)
-    if (req.files) {
-      if (req.files.beforeScreenshot) {
-        const result = await cloudinary.uploader.upload(
-          req.files.beforeScreenshot[0].path,
-          { folder: 'journals', resource_type: 'image' }
-        );
-        entryData.beforeScreenshot = { url: result.secure_url, publicId: result.public_id };
-      }
-      if (req.files.beforeScreenRecording) {
-        const result = await cloudinary.uploader.upload(
-          req.files.beforeScreenRecording[0].path,
-          { folder: 'journals', resource_type: 'video' }
-        );
-        entryData.beforeScreenRecording = { url: result.secure_url, publicId: result.public_id };
-      }
-    }
     const entry = new JournalEntry(entryData);
     await entry.save();
     res.status(201).json(entry);
