@@ -41,7 +41,7 @@ exports.updateEntry = async (req, res) => {
 // Delete a journal entry and its files from Cloudinary
 exports.deleteEntry = async (req, res) => {
   try {
-    const entry = await JournalEntry.findOne({ _id: req.params.id, userId: req.user._id });
+    const entry = await JournalEntry.findOne({ _id: req.params.id, userId: req.user.id });
     if (!entry) return res.status(404).json({ error: 'Entry not found' });
     const cloudinary = require('cloudinary').v2;
     // Remove files from Cloudinary if publicId exists
@@ -84,7 +84,7 @@ exports.createEntry = async (req, res) => {
       outcome,
       timeEntered,
       timeAfterPlayout,
-      userId: req.user._id,
+      userId: req.user.id,
       date: new Date(),
     };
     const entry = new JournalEntry(entryData);
@@ -101,7 +101,7 @@ exports.getEntries = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const pageSize = parseInt(req.query.pageSize) || 4;
-    const query = { userId: req.user._id };
+    const query = { userId: req.user.id };
     const total = await JournalEntry.countDocuments(query);
     const entries = await JournalEntry.find(query)
       .sort({ date: -1 })
