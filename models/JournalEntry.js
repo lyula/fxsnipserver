@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const JournalEntrySchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   type: { type: String, enum: ['Buy', 'Sell'], required: true },
+  pair: { type: String, required: true },
   strategy: String,
   emotions: String,
   confluences: String,
