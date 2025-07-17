@@ -1,3 +1,15 @@
+// Get payment status by paymentId (for polling from frontend)
+exports.getJournalPaymentStatus = async (req, res) => {
+  try {
+    const { paymentId } = req.query;
+    if (!paymentId) return res.status(400).json({ error: 'paymentId is required' });
+    const payment = await JournalPayment.findById(paymentId);
+    if (!payment) return res.status(404).json({ error: 'Payment not found' });
+    return res.json({ status: payment.status, payment });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
 const JournalPayment = require('../models/JournalPayment');
 const axios = require('axios');
 
@@ -56,7 +68,7 @@ exports.createJournalPayment = async (req, res) => {
       return res.status(200).json({ success: false, message: 'Payment Failed', details: apiErr.response?.data || apiErr.message });
     }
     // Save attempt in DB (status: pending)
-    await JournalPayment.create({
+    const paymentDoc = await JournalPayment.create({
       userId,
       amount,
       currency: 'KES',
@@ -70,9 +82,9 @@ exports.createJournalPayment = async (req, res) => {
     });
     // Only return success if PayHero accepted the request
     if (response.data && response.data.ResponseCode === '0') {
-      return res.status(200).json({ success: true, data: response.data });
+      return res.status(200).json({ success: true, data: { ...response.data, _id: paymentDoc._id } });
     } else {
-      return res.status(200).json({ success: false, message: 'Payment Failed', data: response.data });
+      return res.status(200).json({ success: false, message: 'Payment Failed', data: { ...response.data, _id: paymentDoc._id } });
     }
   } catch (err) {
     console.error('STK push error:', err);

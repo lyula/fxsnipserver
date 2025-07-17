@@ -1,3 +1,5 @@
+// Poll payment status by paymentId
+router.get('/status', auth, journalPaymentController.getJournalPaymentStatus);
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
