@@ -5,7 +5,13 @@ exports.getJournalPaymentStatus = async (req, res) => {
     if (!paymentId) return res.status(400).json({ error: 'paymentId is required' });
     const payment = await JournalPayment.findById(paymentId);
     if (!payment) return res.status(404).json({ error: 'Payment not found' });
-    return res.json({ status: payment.status, payment });
+    // Try to get the most accurate failure reason (ResultDesc from callback, or fallback)
+    let failureReason = payment.failureReason;
+    if (!failureReason && payment && payment.status === 'failed' && payment.receipt == null && payment.transactionId) {
+      // Try to get last known ResultDesc from payment (if stored in a future version)
+      failureReason = 'Payment was not completed or was cancelled.';
+    }
+    return res.json({ status: payment.status, payment, failureReason });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -19,6 +25,7 @@ exports.createJournalPayment = async (req, res) => {
     const userId = req.user && req.user.id;
     const userDoc = userId ? await require('../models/User').findById(userId) : null;
     const username = userDoc ? userDoc.username : undefined;
+    // Always treat amount as KES from frontend
     const { phone_number, amount, journalType, billingType } = req.body;
     let customer_name = req.body.customer_name || username;
     if (!phone_number) {
@@ -48,7 +55,7 @@ exports.createJournalPayment = async (req, res) => {
       response = await axios.post(
         'https://backend.payhero.co.ke/api/v2/payments',
         {
-          amount,
+          amount: Number(amount), // Always use the KES amount from frontend
           phone_number,
           channel_id: Number(channel_id),
           provider: 'm-pesa',
@@ -70,7 +77,7 @@ exports.createJournalPayment = async (req, res) => {
     // Save attempt in DB (status: pending)
     const paymentDoc = await JournalPayment.create({
       userId,
-      amount,
+      amount: Number(amount), // Always use the KES amount from frontend
       currency: 'KES',
       channel: channel_id,
       status: 'pending',
@@ -101,7 +108,8 @@ exports.payheroCallback = async (req, res) => {
       status: data.Status === 'Success' ? 'success' : 'failed',
       receipt: data.MpesaReceiptNumber || data.receipt || null,
       transactionId: data.CheckoutRequestID || data.transactionId,
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      failureReason: data.Status === 'Success' ? undefined : (data.ResultDesc || 'Unknown error')
     };
     // Only set period if payment is successful
     if (data.Status === 'Success') {
@@ -151,20 +159,39 @@ exports.payheroCallback = async (req, res) => {
 };
 
 // Get latest payment for user
+
 exports.getLatestJournalPayment = async (req, res) => {
   try {
-    const payment = await JournalPayment.findOne({ userId: req.user.id }).sort({ createdAt: -1 });
-    res.json(payment);
+    const payment = await JournalPayment.findOne({ userId: req.user.id })
+      .sort({ createdAt: -1 })
+      .populate({ path: 'userId', select: 'username' });
+    // Attach username at top level for easier frontend use
+    let paymentObj = payment ? payment.toObject() : null;
+    if (paymentObj && paymentObj.userId && paymentObj.userId.username) {
+      paymentObj.username = paymentObj.userId.username;
+    }
+    res.json(paymentObj);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
 // Get all payments for user
+
 exports.getAllJournalPayments = async (req, res) => {
   try {
-    const payments = await JournalPayment.find({ userId: req.user.id }).sort({ createdAt: -1 });
-    res.json(payments);
+    const payments = await JournalPayment.find({ userId: req.user.id })
+      .sort({ createdAt: -1 })
+      .populate({ path: 'userId', select: 'username' });
+    // Attach username at top level for easier frontend use
+    const paymentsWithUsername = payments.map(payment => {
+      let obj = payment.toObject();
+      if (obj.userId && obj.userId.username) {
+        obj.username = obj.userId.username;
+      }
+      return obj;
+    });
+    res.json(paymentsWithUsername);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

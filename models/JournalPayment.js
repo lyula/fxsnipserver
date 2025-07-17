@@ -11,6 +11,7 @@ const JournalPaymentSchema = new mongoose.Schema({
   receipt: { type: String },
   journalType: { type: String, enum: ['unlimited', 'screenrecording'], required: true },
   period: { type: String, enum: ['monthly', 'annual'], default: 'monthly' },
+  failureReason: { type: String }, // Store payment failure reason (e.g., ResultDesc)
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
