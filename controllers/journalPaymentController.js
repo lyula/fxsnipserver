@@ -8,8 +8,14 @@ exports.createJournalPayment = async (req, res) => {
     const userDoc = userId ? await require('../models/User').findById(userId) : null;
     const username = userDoc ? userDoc.username : undefined;
     const { phone_number, amount, customer_name, journalType, billingType } = req.body;
-    if (!phone_number || !amount || !customer_name) {
-      return res.status(400).json({ error: 'Missing required payment fields' });
+    if (!phone_number) {
+      return res.status(400).json({ error: 'Phone number is required' });
+    }
+    if (!amount) {
+      return res.status(400).json({ error: 'Amount is required' });
+    }
+    if (!customer_name) {
+      return res.status(400).json({ error: 'Customer name is required' });
     }
     if (!/^2547\d{8}$/.test(phone_number)) {
       return res.status(400).json({ error: 'Phone number must be in format 2547XXXXXXXX' });
@@ -46,7 +52,7 @@ exports.createJournalPayment = async (req, res) => {
       );
     } catch (apiErr) {
       console.error('PayHero API error:', apiErr.response?.data || apiErr.message);
-      return res.status(502).json({ error: 'PayHero API error', details: apiErr.response?.data || apiErr.message });
+      return res.status(200).json({ success: false, message: 'Payment Failed', details: apiErr.response?.data || apiErr.message });
     }
     // Save attempt in DB (status: pending)
     await JournalPayment.create({
@@ -61,7 +67,12 @@ exports.createJournalPayment = async (req, res) => {
       transactionId: response.data.CheckoutRequestID,
       receipt: null
     });
-    res.json(response.data);
+    // Only return success if PayHero accepted the request
+    if (response.data && response.data.ResponseCode === '0') {
+      return res.status(200).json({ success: true, data: response.data });
+    } else {
+      return res.status(200).json({ success: false, message: 'Payment Failed', data: response.data });
+    }
   } catch (err) {
     console.error('STK push error:', err);
     res.status(500).json({ error: err.message });
@@ -82,7 +93,6 @@ exports.payheroCallback = async (req, res) => {
     // Only set period if payment is successful
     if (data.Status === 'Success') {
       let period = 'monthly';
-      // Try to get period from payment or fallback to 30 days
       const paymentDoc = await JournalPayment.findOne({ transactionId: data.CheckoutRequestID });
       if (paymentDoc && paymentDoc.period) {
         period = paymentDoc.period;
@@ -116,7 +126,12 @@ exports.payheroCallback = async (req, res) => {
         payment: payment._id
       });
     }
-    res.json({ success: true });
+    // Always return payment failed if not successful
+    if (data.Status === 'Success') {
+      return res.json({ success: true });
+    } else {
+      return res.json({ success: false, message: 'Payment Failed' });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
