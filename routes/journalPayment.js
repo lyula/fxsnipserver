@@ -15,7 +15,7 @@ router.get('/latest', auth, journalPaymentController.getLatestJournalPayment);
 // Get all payments for user
 router.get('/', auth, journalPaymentController.getAllJournalPayments);
 
-// Poll payment status by paymentId (must come after router is defined)
+// Poll payment status by paymentId
 router.get('/status', auth, journalPaymentController.getJournalPaymentStatus);
 
 module.exports = router;
