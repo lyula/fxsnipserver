@@ -31,17 +31,26 @@ exports.updateBadgePricing = async (req, res) => {
 };
 
 // Update USD/KES rate (cron job)
+const JournalPricing = require('../models/JournalPricing');
 exports.updateUsdToKes = async () => {
   try {
     // Use a free forex API 
     const resp = await axios.get('https://open.er-api.com/v6/latest/USD');
     const rate = resp.data.rates.KES;
     if (rate) {
+      // Update BadgePricing
       let pricing = await BadgePricing.findOne();
       if (!pricing) pricing = await BadgePricing.create({});
       pricing.usdToKes = rate;
       pricing.lastUpdated = new Date();
       await pricing.save();
+
+      // Update JournalPricing
+      let journalPricing = await JournalPricing.findOne();
+      if (!journalPricing) journalPricing = await JournalPricing.create({});
+      journalPricing.usdToKes = rate;
+      journalPricing.lastUpdated = new Date();
+      await journalPricing.save();
     }
   } catch (err) {
     console.error('Failed to update USD/KES rate:', err.message);
