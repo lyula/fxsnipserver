@@ -3,9 +3,6 @@ const router = express.Router();
 const journalController = require('../controllers/journalController');
 const auth = require('../middleware/auth');
 
-// For file uploads, use multer
-const multer = require('multer');
-const upload = multer({ dest: 'uploads/' });
 
 router.post('/', auth, journalController.createEntry);
 
