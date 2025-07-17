@@ -178,7 +178,7 @@ exports.payheroCallback = async (req, res) => {
             update,
             { new: true }
         );
-        // Send notification for both success and failure
+        // Send notification for both success and failure, using professional language and best failure reason
         if (payment) {
           const userDoc = await User.findById(payment.user);
           const reason = payment.type === "verified_badge"
@@ -188,9 +188,20 @@ exports.payheroCallback = async (req, res) => {
               : "badge subscription";
           let message;
           if (data.Status === 'Success') {
-            message = `Hey ${userDoc.username}, your payment of ${payment.currency || "KES"} ${payment.amount} for ${reason} was successful!`;
+            message = `Dear ${userDoc.username}, your payment of ${payment.currency || "KES"} ${payment.amount} for ${reason} was successful. Thank you for your subscription.`;
           } else {
-            message = `Sorry ${userDoc.username}, your payment of ${payment.currency || "KES"} ${payment.amount} for ${reason} failed. Reason: ${data.ResultDesc || "Unknown error"}. Please try again.`;
+            // Try to get the most informative failure reason
+            let failureReason = null;
+            if (data.ResultDesc || data.resultDesc) {
+              failureReason = data.ResultDesc || data.resultDesc;
+            } else if (payment.rawResponse && (payment.rawResponse.ResultDesc || payment.rawResponse.resultDesc)) {
+              failureReason = payment.rawResponse.ResultDesc || payment.rawResponse.resultDesc;
+            } else if (payment.methodDetails && (payment.methodDetails.ResultDesc || payment.methodDetails.resultDesc)) {
+              failureReason = payment.methodDetails.ResultDesc || payment.methodDetails.resultDesc;
+            } else if (payment.failureReason) {
+              failureReason = payment.failureReason;
+            }
+            message = `Dear ${userDoc.username}, your payment of ${payment.currency || "KES"} ${payment.amount} for ${reason} was not successful. Reason: ${failureReason || 'Unknown error'}. Please try again or contact support if the issue persists.`;
           }
           await Notification.create({
             user: payment.user,
