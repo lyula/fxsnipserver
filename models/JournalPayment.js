@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const JournalPaymentSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  username: { type: String }, // Store username at time of payment
   amount: { type: Number, required: true },
   currency: { type: String, default: 'USD' },
   channel: { type: String, required: true }, // e.g. 'payhero', 'mpesa', etc

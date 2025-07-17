@@ -77,6 +77,7 @@ exports.createJournalPayment = async (req, res) => {
     // Save attempt in DB (status: pending)
     const paymentDoc = await JournalPayment.create({
       userId,
+      username, // Store username at time of payment
       amount: Number(amount), // Always use the KES amount from frontend
       currency: 'KES',
       channel: channel_id,
