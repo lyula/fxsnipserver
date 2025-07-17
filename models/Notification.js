@@ -14,7 +14,8 @@ const notificationSchema = new mongoose.Schema(
         "reply",
         "follow",
         "mention",
-        "badge_payment", // Add this
+        "badge_payment",
+        "journal_payment", // Add this
       ],
       required: true,
     },
