@@ -43,10 +43,17 @@ exports.createJournalPayment = async (req, res) => {
     if (!process.env.PAYHERO_JOURNAL_CHANNEL_ID || !process.env.PAYHERO_BASIC_AUTH) {
       return res.status(500).json({ error: 'PayHero credentials not set in environment' });
     }
-    // Set period based on billingType
+    // Set period and periodStart/periodEnd based on billingType
     const now = new Date();
     let period = 'monthly';
-    if (billingType === 'annual') period = 'annual';
+    let periodStart = now;
+    let periodEnd;
+    if (billingType === 'annual') {
+      period = 'annual';
+      periodEnd = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+    } else {
+      periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    }
     const channel_id = process.env.PAYHERO_JOURNAL_CHANNEL_ID;
     const callback_url = `${process.env.BASE_URL}/api/journal-payments/payhero-callback`;
     const external_reference = `JOURNAL-${Date.now()}`;
@@ -85,6 +92,8 @@ exports.createJournalPayment = async (req, res) => {
       phone: phone_number,
       journalType,
       period,
+      periodStart,
+      periodEnd,
       transactionId: response.data.CheckoutRequestID,
       receipt: null
     });
@@ -112,16 +121,30 @@ exports.payheroCallback = async (req, res) => {
       updatedAt: new Date(),
       failureReason: data.Status === 'Success' ? undefined : (data.ResultDesc || 'Unknown error')
     };
-    // Only set period if payment is successful
+    // Only set period and periodEnd if payment is successful
     if (data.Status === 'Success') {
       let period = 'monthly';
+      let periodStart = new Date();
+      let periodEnd;
       const paymentDoc = await JournalPayment.findOne({ transactionId: data.CheckoutRequestID });
       if (paymentDoc && paymentDoc.period) {
         period = paymentDoc.period;
       }
+      if (paymentDoc && paymentDoc.periodStart) {
+        periodStart = paymentDoc.periodStart;
+      }
+      if (period === 'annual') {
+        periodEnd = new Date(periodStart.getTime() + 365 * 24 * 60 * 60 * 1000);
+      } else {
+        periodEnd = new Date(periodStart.getTime() + 30 * 24 * 60 * 60 * 1000);
+      }
       update.period = period;
+      update.periodStart = periodStart;
+      update.periodEnd = periodEnd;
     } else {
       update.period = undefined;
+      update.periodStart = undefined;
+      update.periodEnd = undefined;
     }
     const payment = await JournalPayment.findOneAndUpdate(
       { transactionId: data.CheckoutRequestID },

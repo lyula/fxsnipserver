@@ -13,6 +13,8 @@ const JournalPaymentSchema = new mongoose.Schema({
   journalType: { type: String, enum: ['unlimited', 'screenrecording'], required: true },
   period: { type: String, enum: ['monthly', 'annual'], default: 'monthly' },
   failureReason: { type: String }, // Store payment failure reason (e.g., ResultDesc)
+  periodStart: { type: Date }, // When the paid period starts
+  periodEnd: { type: Date },   // When the paid period ends
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
