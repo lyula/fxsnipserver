@@ -7,7 +7,8 @@ exports.createJournalPayment = async (req, res) => {
     const userId = req.user && req.user.id;
     const userDoc = userId ? await require('../models/User').findById(userId) : null;
     const username = userDoc ? userDoc.username : undefined;
-    const { phone_number, amount, customer_name, journalType, billingType } = req.body;
+    const { phone_number, amount, journalType, billingType } = req.body;
+    let customer_name = req.body.customer_name || username;
     if (!phone_number) {
       return res.status(400).json({ error: 'Phone number is required' });
     }
