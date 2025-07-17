@@ -1,6 +1,7 @@
 ﻿require("dotenv").config();
 const { app, server } = require("./app");
 const connectDB = require("./config/db");
+const journalPaymentRoutes = require('./routes/journalPayment');
 const cron = require('node-cron');
 const { expireOldBadgePayments } = require('./controllers/badgePaymentController');
 const { updateUsdToKes } = require('./controllers/badgePricingController');
@@ -26,4 +27,5 @@ connectDB().then(() => {
 
   server.listen(process.env.PORT || 5000);
   console.log("Server running on port " + (process.env.PORT || 5000));
+  app.use('/api/journal-payments', journalPaymentRoutes);
 });

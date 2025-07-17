@@ -109,20 +109,90 @@ exports.deleteEntry = async (req, res) => {
   }
 };
 
-// Create a new journal entry
+// Create a new journal entry with payment enforcement
+const JournalPayment = require('../models/JournalPayment');
 exports.createEntry = async (req, res) => {
   try {
     // Debug logs for troubleshooting
     console.log('Journal createEntry req.body:', req.body);
-    console.log('type:', req.body.type);
-    console.log('strategy:', req.body.strategy);
-    console.log('emotions:', req.body.emotions);
-    // Accept all fields as JSON, including file URLs/publicIds
+    const userId = req.user.id;
     const { type, pair, strategy, emotions, confluences, beforeScreenshot, afterScreenshot, beforeScreenRecording, afterScreenRecording, outcome, timeEntered, timeAfterPlayout } = req.body;
     if (!type || !pair || !strategy || !emotions) {
-      console.log('Missing required fields:', { type, pair, strategy, emotions });
       return res.status(400).json({ error: 'Trade Type, Pair, Strategy, and Emotions are required.' });
     }
+
+    // 1. Enforce 1 free journal per month, but allow unlimited if paid (monthly or annual)
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const journalCount = await JournalEntry.countDocuments({ userId, date: { $gte: monthStart } });
+    // For monthly payments, use 30 days window
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    let hasPaidUnlimited = false;
+    let hasPaidUnlimitedAnnual = false;
+    if (journalCount >= 1) {
+      // Check for successful unlimited journal payment (monthly: last 30 days, or annual: last 365 days)
+      // 1. Monthly (30 days)
+      const paidMonthly = await JournalPayment.findOne({
+        userId,
+        journalType: 'unlimited',
+        status: 'success',
+        period: 'monthly',
+        createdAt: { $gte: thirtyDaysAgo }
+      });
+      // 2. Annual (within 365 days)
+      const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+      const paidAnnual = await JournalPayment.findOne({
+        userId,
+        journalType: 'unlimited',
+        status: 'success',
+        period: 'annual',
+        createdAt: { $gte: yearAgo }
+      });
+      hasPaidUnlimited = !!paidMonthly || !!paidAnnual;
+      hasPaidUnlimitedAnnual = !!paidAnnual;
+      if (!hasPaidUnlimited) {
+        return res.status(402).json({ error: 'You have used your free journal for this month. Please pay $2/month (30 days) or $19.99/year for unlimited journals.' });
+      }
+    }
+
+    // 2. If uploading screen recording, require screenrecording payment (monthly or annual)
+    let hasPaidScreen = false;
+    let hasPaidScreenAnnual = false;
+    if (beforeScreenRecording || afterScreenRecording) {
+      // Monthly (30 days)
+      const paidScreenMonthly = await JournalPayment.findOne({
+        userId,
+        journalType: 'screenrecording',
+        status: 'success',
+        period: 'monthly',
+        createdAt: { $gte: thirtyDaysAgo }
+      });
+      // Annual (within 365 days)
+      const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+      const paidScreenAnnual = await JournalPayment.findOne({
+        userId,
+        journalType: 'screenrecording',
+        status: 'success',
+        period: 'annual',
+        createdAt: { $gte: yearAgo }
+      });
+      hasPaidScreen = !!paidScreenMonthly || !!paidScreenAnnual;
+      hasPaidScreenAnnual = !!paidScreenAnnual;
+      if (!hasPaidScreen) {
+        return res.status(402).json({ error: 'Screen recordings require a $9.99/month (30 days) or $99.99/year payment.' });
+      }
+    }
+
+    // 3. If user has paid for screenrecording, allow unlimited screenshots too for the period
+    let allowScreenshots = false;
+    if (hasPaidScreen) {
+      allowScreenshots = true;
+    }
+    // If user tries to upload screenshots but not paid for unlimited journals or screenrecording, block after 1 free
+    if ((beforeScreenshot || afterScreenshot) && journalCount >= 1 && !hasPaidUnlimited && !allowScreenshots) {
+      return res.status(402).json({ error: 'Uploading screenshots requires a payment for unlimited journals or screenrecording.' });
+    }
+
     const entryData = {
       type,
       pair,
@@ -136,7 +206,7 @@ exports.createEntry = async (req, res) => {
       outcome,
       timeEntered,
       timeAfterPlayout,
-      userId: req.user.id,
+      userId,
       date: new Date(),
     };
     const entry = new JournalEntry(entryData);
