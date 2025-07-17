@@ -118,13 +118,14 @@ exports.createEntry = async (req, res) => {
     console.log('strategy:', req.body.strategy);
     console.log('emotions:', req.body.emotions);
     // Accept all fields as JSON, including file URLs/publicIds
-    const { type, strategy, emotions, confluences, beforeScreenshot, afterScreenshot, beforeScreenRecording, afterScreenRecording, outcome, timeEntered, timeAfterPlayout } = req.body;
-    if (!type || !strategy || !emotions) {
-      console.log('Missing required fields:', { type, strategy, emotions });
-      return res.status(400).json({ error: 'Trade Type, Strategy, and Emotions are required.' });
+    const { type, pair, strategy, emotions, confluences, beforeScreenshot, afterScreenshot, beforeScreenRecording, afterScreenRecording, outcome, timeEntered, timeAfterPlayout } = req.body;
+    if (!type || !pair || !strategy || !emotions) {
+      console.log('Missing required fields:', { type, pair, strategy, emotions });
+      return res.status(400).json({ error: 'Trade Type, Pair, Strategy, and Emotions are required.' });
     }
     const entryData = {
       type,
+      pair,
       strategy,
       emotions,
       confluences,
