@@ -1,60 +1,122 @@
 const JournalPayment = require('../models/JournalPayment');
 const axios = require('axios');
 
-// Create a new journal payment and initiate STK push
+// Create a new journal payment and initiate STK push (PayHero)
 exports.createJournalPayment = async (req, res) => {
   try {
-    const { amount, phone, journalType } = req.body;
-    const userId = req.user.id;
-    const channel = process.env.PAYHERO_JOURNAL_CHANNEL_ID;
-
-    // Create payment record (pending)
-    const payment = new JournalPayment({
+    const userId = req.user && req.user.id;
+    const userDoc = userId ? await require('../models/User').findById(userId) : null;
+    const username = userDoc ? userDoc.username : undefined;
+    const { phone_number, amount, customer_name, journalType, billingType } = req.body;
+    if (!phone_number || !amount || !customer_name) {
+      return res.status(400).json({ error: 'Missing required payment fields' });
+    }
+    if (!/^2547\d{8}$/.test(phone_number)) {
+      return res.status(400).json({ error: 'Phone number must be in format 2547XXXXXXXX' });
+    }
+    if (!process.env.PAYHERO_JOURNAL_CHANNEL_ID || !process.env.PAYHERO_BASIC_AUTH) {
+      return res.status(500).json({ error: 'PayHero credentials not set in environment' });
+    }
+    // Set period based on billingType
+    const now = new Date();
+    let period = 'monthly';
+    if (billingType === 'annual') period = 'annual';
+    const channel_id = process.env.PAYHERO_JOURNAL_CHANNEL_ID;
+    const callback_url = `${process.env.BASE_URL}/api/journal-payments/payhero-callback`;
+    const external_reference = `JOURNAL-${Date.now()}`;
+    let response;
+    try {
+      response = await axios.post(
+        'https://backend.payhero.co.ke/api/v2/payments',
+        {
+          amount,
+          phone_number,
+          channel_id: Number(channel_id),
+          provider: 'm-pesa',
+          external_reference,
+          customer_name,
+          callback_url
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': process.env.PAYHERO_BASIC_AUTH.trim()
+          }
+        }
+      );
+    } catch (apiErr) {
+      console.error('PayHero API error:', apiErr.response?.data || apiErr.message);
+      return res.status(502).json({ error: 'PayHero API error', details: apiErr.response?.data || apiErr.message });
+    }
+    // Save attempt in DB (status: pending)
+    await JournalPayment.create({
       userId,
       amount,
-      currency: 'USD',
-      channel,
+      currency: 'KES',
+      channel: channel_id,
       status: 'pending',
-      phone,
-      journalType
+      phone: phone_number,
+      journalType,
+      period,
+      transactionId: response.data.CheckoutRequestID,
+      receipt: null
     });
-    await payment.save();
-
-    // Initiate STK push via Payhero
-    const payheroRes = await axios.post(
-      `${process.env.BASE_URL}/api/payhero/stkpush`,
-      {
-        amount,
-        phone,
-        channelId: channel,
-        paymentId: payment._id,
-        journalType
-      },
-      {
-        headers: {
-          Authorization: process.env.PAYHERO_BASIC_AUTH
-        }
-      }
-    );
-
-    res.status(201).json({ payment, stk: payheroRes.data });
+    res.json(response.data);
   } catch (err) {
+    console.error('STK push error:', err);
     res.status(500).json({ error: err.message });
   }
 };
 
-// Callback to update payment status
+// Callback to update payment status (aligned with badge payment logic)
 exports.payheroCallback = async (req, res) => {
   try {
-    const { paymentId, status, transactionId, receipt } = req.body;
-    const payment = await JournalPayment.findById(paymentId);
-    if (!payment) return res.status(404).json({ error: 'Payment not found' });
-    payment.status = status;
-    payment.transactionId = transactionId;
-    payment.receipt = receipt;
-    payment.updatedAt = new Date();
-    await payment.save();
-    res.status(200).json({ success: true });
+    const data = req.body.response || req.body;
+    // Find and update the payment by transactionId or external_reference
+    let update = {
+      status: data.Status === 'Success' ? 'success' : 'failed',
+      receipt: data.MpesaReceiptNumber || data.receipt || null,
+      transactionId: data.CheckoutRequestID || data.transactionId,
+      updatedAt: new Date()
+    };
+    // Only set period if payment is successful
+    if (data.Status === 'Success') {
+      let period = 'monthly';
+      // Try to get period from payment or fallback to 30 days
+      const paymentDoc = await JournalPayment.findOne({ transactionId: data.CheckoutRequestID });
+      if (paymentDoc && paymentDoc.period) {
+        period = paymentDoc.period;
+      }
+      update.period = period;
+    } else {
+      update.period = undefined;
+    }
+    const payment = await JournalPayment.findOneAndUpdate(
+      { transactionId: data.CheckoutRequestID },
+      update,
+      { new: true }
+    );
+    // Send notification for both success and failure
+    if (payment) {
+      const User = require('../models/User');
+      const Notification = require('../models/Notification');
+      const userDoc = await User.findById(payment.userId);
+      const reason = payment.journalType ? `${payment.journalType} journal subscription` : 'journal subscription';
+      let message;
+      if (data.Status === 'Success') {
+        message = `Hey ${userDoc.username}, your payment of ${payment.currency || 'KES'} ${payment.amount} for ${reason} was successful!`;
+      } else {
+        message = `Sorry ${userDoc.username}, your payment of ${payment.currency || 'KES'} ${payment.amount} for ${reason} failed. Reason: ${data.ResultDesc || 'Unknown error'}. Please try again.`;
+      }
+      await Notification.create({
+        user: payment.userId,
+        type: 'journal_payment',
+        message,
+        read: false,
+        payment: payment._id
+      });
+    }
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
