@@ -129,6 +129,7 @@ exports.createEntry = async (req, res) => {
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     let hasPaidUnlimited = false;
     let hasPaidUnlimitedAnnual = false;
+    // Always allow the first journal (excluding screenrecordings) for free each month
     if (journalCount >= 1) {
       // Check for successful unlimited journal payment (monthly: last 30 days, or annual: last 365 days)
       // 1. Monthly (30 days)
@@ -150,7 +151,8 @@ exports.createEntry = async (req, res) => {
       });
       hasPaidUnlimited = !!paidMonthly || !!paidAnnual;
       hasPaidUnlimitedAnnual = !!paidAnnual;
-      if (!hasPaidUnlimited) {
+      // Only enforce payment for unlimited journals if user has already created one this month and is not paying
+      if (!hasPaidUnlimited && (!beforeScreenRecording && !afterScreenRecording)) {
         return res.status(402).json({ error: 'You have used your free journal for this month. Please pay $2/month (30 days) or $19.99/year for unlimited journals.' });
       }
     }
