@@ -10,6 +10,7 @@ const badgePaymentRoutes = require("./routes/badgePayment");
 const badgePricingRoutes = require('./routes/badgePricing');
 const errorHandler = require("./middleware/errorHandler");
 const journalRoutes = require("./routes/journal");
+const journalPaymentRoutes = require("./routes/journalPayment");
 
 require('dotenv').config();
 const allowedOrigins = [
@@ -31,6 +32,7 @@ app.use("/api/posts", postRoutes);
 app.use("/api/badge-payments", badgePaymentRoutes);
 app.use("/api/badge-pricing", badgePricingRoutes);
 app.use("/api/journal", journalRoutes);
+app.use("/api/journal-payments", journalPaymentRoutes);
 app.use(errorHandler);
 app.all('/debug-headers', (req, res) => {
   res.json({ headers: req.headers });
