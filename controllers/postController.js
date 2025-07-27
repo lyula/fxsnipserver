@@ -515,7 +515,6 @@ exports.likePost = async (req, res) => {
     if (userIndex === -1) {
       // User hasn't liked this post yet, add like
       post.likes.push(req.user.id);
-      
       // Send notification to the post author (only when liking, not unliking)
       if (post.author.toString() !== req.user.id) {
         await Notification.create({
@@ -535,12 +534,19 @@ exports.likePost = async (req, res) => {
 
     // Populate author fields for response
     await post.populate([
-      { path: "author", select: "username verified profileImage profileImagePublicId countryFlag" },
-      { path: "comments.author", select: "username verified profileImage profileImagePublicId" },
-      { path: "comments.replies.author", select: "username verified profileImage profileImagePublicId" }
+      { path: "author", select: "username verified countryFlag profile" },
+      { path: "comments.author", select: "username verified profile" },
+      { path: "comments.replies.author", select: "username verified profile" }
     ]);
 
-    res.status(200).json(post);
+    // Ensure the returned post is a plain object (not a Mongoose doc)
+    const postObj = post.toObject();
+
+    // If profileImage is missing, set to empty string for frontend consistency
+    if (!postObj.author.profile) postObj.author.profile = { profileImage: "" };
+    if (!postObj.author.profile.profileImage) postObj.author.profile.profileImage = "";
+
+    res.status(200).json(postObj);
   } catch (error) {
     console.error("Error liking post:", error);
     res.status(500).json({ error: "Failed to like post" });
