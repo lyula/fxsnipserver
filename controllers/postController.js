@@ -87,16 +87,24 @@ exports.createPost = async (req, res) => {
       likes: [],
     });
     await post.save();
-    
+
     // Create mention notifications
     await createMentionNotifications(content, req.user.id, req.user.username, post._id);
-    
-    // Populate author before sending response
+
+    // Populate author with username, verified, countryFlag, and profile (including profileImage)
     await post.populate({
       path: "author",
-      select: "username verified profileImage profileImagePublicId countryFlag"
+      select: "username verified countryFlag profile"
     });
-    res.status(201).json(post);
+
+    // Ensure the returned post is a plain object (not a Mongoose doc)
+    const postObj = post.toObject();
+
+    // If profileImage is missing, set to empty string for frontend consistency
+    if (!postObj.author.profile) postObj.author.profile = { profileImage: "" };
+    if (!postObj.author.profile.profileImage) postObj.author.profile.profileImage = "";
+
+    res.status(201).json(postObj);
   } catch (error) {
     res.status(500).json({ error: "Failed to create post" });
   }
