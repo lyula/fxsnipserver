@@ -631,14 +631,15 @@ exports.likeComment = async (req, res) => {
 
     await post.save();
 
-    // Populate author fields for response using modern populate method
-    await post.populate([
-      { path: "comments.author", select: "username verified profileImage profileImagePublicId" },
-      { path: "comments.replies.author", select: "username verified profileImage profileImagePublicId" },
-      { path: "author", select: "username verified profileImage profileImagePublicId countryFlag" }
-    ]);
+    // Re-fetch and fully populate the post for response
+    const updatedPost = await Post.findById(post._id)
+      .populate([
+        { path: "author", select: "username verified countryFlag profile profileImage" },
+        { path: "comments.author", select: "username verified profile profileImage" },
+        { path: "comments.replies.author", select: "username verified profile profileImage" }
+      ]);
 
-    res.status(200).json(post);
+    res.status(200).json(updatedPost.toObject());
   } catch (error) {
     console.error("Error liking comment:", error);
     res.status(500).json({ error: "Failed to like comment" });
@@ -683,14 +684,15 @@ exports.likeReply = async (req, res) => {
 
     await post.save();
 
-    // Populate author fields for response using modern populate method
-    await post.populate([
-      { path: "comments.author", select: "username verified profileImage profileImagePublicId" },
-      { path: "comments.replies.author", select: "username verified profileImage profileImagePublicId" },
-      { path: "author", select: "username verified profileImage profileImagePublicId countryFlag" }
-    ]);
+    // Re-fetch and fully populate the post for response
+    const updatedPost = await Post.findById(post._id)
+      .populate([
+        { path: "author", select: "username verified countryFlag profile profileImage" },
+        { path: "comments.author", select: "username verified profile profileImage" },
+        { path: "comments.replies.author", select: "username verified profile profileImage" }
+      ]);
 
-    res.status(200).json(post);
+    res.status(200).json(updatedPost.toObject());
   } catch (error) {
     console.error("Error liking reply:", error);
     res.status(500).json({ error: "Failed to like reply" });
@@ -731,14 +733,15 @@ exports.addReply = async (req, res) => {
     // Create mention notifications
     await createMentionNotifications(content, req.user.id, req.user.username, post._id, comment._id, addedReply._id);
 
-    // Populate author fields for response
-    await post.populate([
-      { path: "comments.author", select: "username verified profileImage profileImagePublicId countryFlag" },
-      { path: "comments.replies.author", select: "username verified profileImage profileImagePublicId" },
-      { path: "author", select: "username verified profileImage profileImagePublicId countryFlag" }
-    ]);
-    
-    res.status(201).json(post);
+    // Re-fetch and fully populate the post for response
+    const updatedPost = await Post.findById(post._id)
+      .populate([
+        { path: "author", select: "username verified countryFlag profile profileImage" },
+        { path: "comments.author", select: "username verified profile profileImage" },
+        { path: "comments.replies.author", select: "username verified profile profileImage" }
+      ]);
+
+    res.status(201).json(updatedPost.toObject());
   } catch (error) {
     res.status(500).json({ error: "Failed to add reply" });
   }
@@ -888,14 +891,15 @@ exports.editComment = async (req, res) => {
     post.markModified('comments');
     await post.save();
     
-    // Populate author fields for response
-    await post.populate([
-      { path: "comments.author", select: "username verified profileImage profileImagePublicId" },
-      { path: "comments.replies.author", select: "username verified profileImage profileImagePublicId" },
-      { path: "author", select: "username verified profileImage profileImagePublicId countryFlag" }
-    ]);
-    
-    res.status(200).json(post);
+    // Re-fetch and fully populate the post for response
+    const updatedPost = await Post.findById(post._id)
+      .populate([
+        { path: "author", select: "username verified countryFlag profile profileImage" },
+        { path: "comments.author", select: "username verified profile profileImage" },
+        { path: "comments.replies.author", select: "username verified profile profileImage" }
+      ]);
+
+    res.status(200).json(updatedPost.toObject());
   } catch (error) {
     console.error("Error editing comment:", error);
     res.status(500).json({ error: "Failed to edit comment" });
@@ -925,14 +929,15 @@ exports.deleteComment = async (req, res) => {
     post.comments.pull(commentId);
     await post.save();
     
-    // Populate author fields for response
-    await post.populate([
-      { path: "comments.author", select: "username verified profileImage profileImagePublicId" },
-      { path: "comments.replies.author", select: "username verified profileImage profileImagePublicId" },
-      { path: "author", select: "username verified profileImage profileImagePublicId countryFlag" }
-    ]);
-    
-    res.status(200).json(post);
+    // Re-fetch and fully populate the post for response
+    const updatedPost = await Post.findById(post._id)
+      .populate([
+        { path: "author", select: "username verified countryFlag profile profileImage" },
+        { path: "comments.author", select: "username verified profile profileImage" },
+        { path: "comments.replies.author", select: "username verified profile profileImage" }
+      ]);
+
+    res.status(200).json(updatedPost.toObject());
   } catch (error) {
     console.error("Error deleting comment:", error);
     res.status(500).json({ error: "Failed to delete comment" });
@@ -968,14 +973,15 @@ exports.editReply = async (req, res) => {
     post.markModified('comments');
     await post.save();
     
-    // Populate author fields for response
-    await post.populate([
-      { path: "comments.author", select: "username verified profileImage profileImagePublicId" },
-      { path: "comments.replies.author", select: "username verified profileImage profileImagePublicId" },
-      { path: "author", select: "username verified profileImage profileImagePublicId countryFlag" }
-    ]);
-    
-    res.status(200).json(post);
+    // Re-fetch and fully populate the post for response
+    const updatedPost = await Post.findById(post._id)
+      .populate([
+        { path: "author", select: "username verified countryFlag profile profileImage" },
+        { path: "comments.author", select: "username verified profile profileImage" },
+        { path: "comments.replies.author", select: "username verified profile profileImage" }
+      ]);
+
+    res.status(200).json(updatedPost.toObject());
   } catch (error) {
     console.error("Error editing reply:", error);
     res.status(500).json({ error: "Failed to edit reply" });
@@ -1010,14 +1016,15 @@ exports.deleteReply = async (req, res) => {
     comment.replies.pull(replyId);
     await post.save();
     
-    // Populate author fields for response
-    await post.populate([
-      { path: "comments.author", select: "username verified profileImage profileImagePublicId" },
-      { path: "comments.replies.author", select: "username verified profileImage profileImagePublicId" },
-      { path: "author", select: "username verified profileImage profileImagePublicId countryFlag" }
-    ]);
-    
-    res.status(200).json(post);
+    // Re-fetch and fully populate the post for response
+    const updatedPost = await Post.findById(post._id)
+      .populate([
+        { path: "author", select: "username verified countryFlag profile profileImage" },
+        { path: "comments.author", select: "username verified profile profileImage" },
+        { path: "comments.replies.author", select: "username verified profile profileImage" }
+      ]);
+
+    res.status(200).json(updatedPost.toObject());
   } catch (error) {
     console.error("Error deleting reply:", error);
     res.status(500).json({ error: "Failed to delete reply" });
