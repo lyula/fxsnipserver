@@ -583,14 +583,15 @@ exports.addComment = async (req, res) => {
     // Create mention notifications
     await createMentionNotifications(content, req.user.id, req.user.username, post._id, addedComment._id);
 
-    // Populate author for the response
-    await post.populate([
-      { path: "author", select: "username verified profileImage profileImagePublicId countryFlag" },
-      { path: "comments.author", select: "username verified profileImage profileImagePublicId" },
-      { path: "comments.replies.author", select: "username verified profileImage profileImagePublicId" }
-    ]);
+    // Re-fetch and fully populate the post for response
+    const updatedPost = await Post.findById(post._id)
+      .populate([
+        { path: "author", select: "username verified countryFlag profile profileImage" },
+        { path: "comments.author", select: "username verified profile profileImage" },
+        { path: "comments.replies.author", select: "username verified profile profileImage" }
+      ]);
 
-    res.status(201).json(post);
+    res.status(201).json(updatedPost.toObject());
   } catch (error) {
     res.status(500).json({ error: "Failed to add comment" });
   }
