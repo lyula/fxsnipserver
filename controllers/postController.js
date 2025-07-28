@@ -30,18 +30,18 @@ exports.searchPosts = async (req, res) => {
     const posts = await Post.find(query)
       .populate({
         path: "author",
-        select: "username verified countryFlag profile"
+        select: "username verified countryFlag profile profileImage"
       })
       .populate({
         path: "comments",
         populate: {
           path: "author",
-          select: "username verified profile"
+          select: "username verified profile profileImage"
         }
       })
       .populate({
         path: "comments.replies.author",
-        select: "username verified profile"
+        select: "username verified profile profileImage"
       })
       .sort({ createdAt: -1 })
       .skip(parseInt(offset))
@@ -161,18 +161,18 @@ exports.getPosts = async (req, res) => {
     const posts = await Post.find(query)
       .populate({
         path: "author",
-        select: "username verified countryFlag profile"
+        select: "username verified countryFlag profile profileImage"
       })
       .populate({
         path: "comments",
         populate: {
           path: "author",
-          select: "username verified profile"
+          select: "username verified profile profileImage"
         }
       })
       .populate({
         path: "comments.replies.author",
-        select: "username verified profile"
+        select: "username verified profile profileImage"
       })
       .sort(sortOptions)
       .lean(); // Use lean for better performance
@@ -392,18 +392,18 @@ exports.getFollowingPosts = async (req, res) => {
     const posts = await Post.find(query)
       .populate({
         path: "author",
-        select: "username verified countryFlag profile"
+        select: "username verified countryFlag profile profileImage"
       })
       .populate({
         path: "comments",
         populate: {
           path: "author",
-          select: "username verified profile"
+          select: "username verified profile profileImage"
         }
       })
       .populate({
         path: "comments.replies.author",
-        select: "username verified profile"
+        select: "username verified profile profileImage"
       })
       .sort(sortOptions)
       .lean(); // Use lean for better performance
@@ -534,9 +534,9 @@ exports.likePost = async (req, res) => {
 
     // Populate author fields for response
     await post.populate([
-      { path: "author", select: "username verified countryFlag profile" },
-      { path: "comments.author", select: "username verified profile" },
-      { path: "comments.replies.author", select: "username verified profile" }
+      { path: "author", select: "username verified countryFlag profile profileImage" },
+      { path: "comments.author", select: "username verified profile profileImage" },
+      { path: "comments.replies.author", select: "username verified profile profileImage" }
     ]);
 
     // Ensure the returned post is a plain object (not a Mongoose doc)
