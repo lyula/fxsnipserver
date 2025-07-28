@@ -75,13 +75,14 @@ module.exports = function messagingSocket(io, socket, onlineUsers) {
 
   // --- Handle typing status ---
   socket.on("typing", (data) => {
-    console.log('[Socket] typing event RAW data:', data, 'socket.userId:', socket.userId);
+    const now = new Date().toISOString();
+    console.log(`[Socket][${now}] typing event RAW data:`, data, 'socket.userId:', socket.userId);
     let { to, conversationId } = data || {};
     if (!conversationId && to) {
       conversationId = getConversationId(socket.userId, to);
     }
     if (!socket.userId || !to || !conversationId) {
-      console.warn('[Socket] typing event missing required fields', { userId: socket.userId, to, conversationId, data });
+      console.warn(`[Socket][${now}] typing event missing required fields`, { userId: socket.userId, to, conversationId, data });
       return;
     }
     // Defensive: always treat onlineUsers[to] as an array
@@ -91,34 +92,37 @@ module.exports = function messagingSocket(io, socket, onlineUsers) {
     } else if (onlineUsers[to]) {
       socketIds = [onlineUsers[to]];
     }
-    console.log('[Socket] typing event received:', { from: socket.userId, to, conversationId, onlineUsersEntry: onlineUsers[to], socketIds });
+    console.log(`[Socket][${now}] typing event received:`, { from: socket.userId, to, conversationId, onlineUsersEntry: onlineUsers[to], socketIds });
     if (socketIds.length === 0) {
-      console.warn('[Socket] No recipient sockets found for typing event', { to, onlineUsers });
+      console.warn(`[Socket][${now}] No recipient sockets found for typing event`, { to, onlineUsers });
     }
     socketIds.forEach(socketId => {
       io.to(socketId).emit("typing", { conversationId, userId: socket.userId });
-      console.log('[Socket] typing event emitted to:', { socketId, conversationId, userId: socket.userId });
+      console.log(`[Socket][${now}] typing event emitted to:`, { socketId, conversationId, userId: socket.userId });
     });
     // Extra debug: print all onlineUsers mapping
-    console.log('[Socket] FULL onlineUsers mapping:', JSON.stringify(onlineUsers, null, 2));
+    console.log(`[Socket][${now}] FULL onlineUsers mapping:`, JSON.stringify(onlineUsers, null, 2));
   });
 
   // --- Handle stop-typing status ---
   socket.on("stop-typing", (data) => {
-    console.log('[Socket] stop-typing event RAW data:', data, 'socket.userId:', socket.userId);
+    const now = new Date().toISOString();
+    console.log(`[Socket][${now}] stop-typing event RAW data:`, data, 'socket.userId:', socket.userId);
     let { to, conversationId } = data || {};
     if (!conversationId && to) {
       conversationId = getConversationId(socket.userId, to);
     }
     if (!socket.userId || !to || !conversationId) {
-      console.warn('[Socket] stop-typing event missing required fields', { userId: socket.userId, to: to, conversationId: conversationId, data: data });
+      console.warn(`[Socket][${now}] stop-typing event missing required fields`, { userId: socket.userId, to: to, conversationId: conversationId, data: data });
       return;
     }
     const socketIds = Array.isArray(onlineUsers[to]) ? onlineUsers[to] : onlineUsers[to] ? [onlineUsers[to]] : [];
-    console.log('[Socket] stop-typing event received:', { from: socket.userId, to, conversationId, socketIds });
+    console.log(`[Socket][${now}] stop-typing event received:`, { from: socket.userId, to, conversationId, socketIds });
     socketIds.forEach(socketId => {
       io.to(socketId).emit("stop-typing", { conversationId, userId: socket.userId });
-      console.log('[Socket] stop-typing event emitted to:', { socketId, conversationId, userId: socket.userId });
+      console.log(`[Socket][${now}] stop-typing event emitted to:`, { socketId, conversationId, userId: socket.userId });
     });
+    // Extra debug: print all onlineUsers mapping
+    console.log(`[Socket][${now}] FULL onlineUsers mapping:`, JSON.stringify(onlineUsers, null, 2));
   });
 };
