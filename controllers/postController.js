@@ -752,6 +752,7 @@ exports.incrementPostViews = async (req, res) => {
   try {
     // Change from req.params.postId to req.params.id
     const postId = req.params.id;
+    console.log('📊 [POST VIEWS] Incrementing views for post:', postId);
     
     const post = await Post.findByIdAndUpdate(
       postId,
@@ -760,15 +761,22 @@ exports.incrementPostViews = async (req, res) => {
     );
 
     if (!post) {
+      console.log('❌ [POST VIEWS] Post not found:', postId);
       return res.status(404).json({ error: 'Post not found' });
     }
 
+    console.log('✅ [POST VIEWS] Views incremented to:', post.views, 'for post:', postId);
+
     // Emit real-time view update to all connected clients
-    if (req.app.get('socketio')) {
-      req.app.get('socketio').emit('post-view-updated', {
+    const io = req.app.get('socketio');
+    if (io) {
+      console.log('🔌 [SOCKET] Emitting post-view-updated event:', { postId: post._id, views: post.views });
+      io.emit('post-view-updated', {
         postId: post._id,
         views: post.views
       });
+    } else {
+      console.log('❌ [SOCKET] Socket.io instance not found');
     }
 
     res.json({ views: post.views });
