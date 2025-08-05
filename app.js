@@ -43,7 +43,8 @@ app.all('/debug-headers', (req, res) => {
 // --- SOCKET.IO SETUP ---
 const server = http.createServer(app);
 const setupSocket = require("./sockets");
-setupSocket(server);
+const io = setupSocket(server);
+app.set('socketio', io); // Make socket.io instance available to controllers
 // --- END SOCKET.IO SETUP ---
 
 module.exports = { app, server };

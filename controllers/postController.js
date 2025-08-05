@@ -763,6 +763,14 @@ exports.incrementPostViews = async (req, res) => {
       return res.status(404).json({ error: 'Post not found' });
     }
 
+    // Emit real-time view update to all connected clients
+    if (req.app.get('socketio')) {
+      req.app.get('socketio').emit('post-view-updated', {
+        postId: post._id,
+        views: post.views
+      });
+    }
+
     res.json({ views: post.views });
   } catch (error) {
     console.error('Error incrementing post views:', error);
