@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 
+// Main authentication middleware (can be called protect or requireAuth)
 function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization; // Always lowercase
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -22,4 +23,24 @@ function requireAuth(req, res, next) {
   }
 }
 
-module.exports = requireAuth;
+// Alias for protect (for compatibility)
+const protect = requireAuth;
+
+// Authorization middleware for role-based access
+function authorize(...roles) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ 
+        message: `User role '${req.user.role}' is not authorized to access this route` 
+      });
+    }
+    
+    next();
+  };
+}
+
+module.exports = { requireAuth, protect, authorize };
