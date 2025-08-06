@@ -17,7 +17,9 @@ const {
   editReply,
   deleteReply,
   getPostLikes,
-  incrementShareCount // Import incrementShareCount
+  incrementShareCount, // Import incrementShareCount
+  trackAdImpression,  // Add ad tracking
+  trackAdClick       // Add ad tracking
 } = require("../controllers/postController");
 const { requireAuth: auth } = require("../middleware/auth");
 const Post = require("../models/Post");
@@ -153,5 +155,9 @@ router.get("/:postId", async (req, res) => {
 
 // Increment share count for a post (public, no auth required)
 router.post('/:postId/share', incrementShareCount);
+
+// Ad tracking routes
+router.post('/ads/:adId/impression', auth, trackAdImpression);
+router.post('/ads/:adId/click', auth, trackAdClick);
 
 module.exports = router;

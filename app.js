@@ -19,12 +19,41 @@ const paymentRoutes = require("./routes/payments");
 require('dotenv').config();
 const allowedOrigins = [
   process.env.CLIENT_URL,
-  'http://localhost:5173'
+  'http://localhost:5173',
+  'http://127.0.0.1:5173'
 ].filter(Boolean);
+
+console.log('CORS allowed origins:', allowedOrigins);
+
 app.use(cors({
-  origin: allowedOrigins,
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      console.log('CORS: Allowing origin:', origin);
+      callback(null, true);
+    } else {
+      console.log('CORS: Blocking origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'Origin', 
+    'X-Requested-With', 
+    'Accept',
+    'Cache-Control',
+    'Pragma',
+    'If-None-Match',
+    'If-Modified-Since',
+    'Expires',
+    'Last-Modified',
+    'ETag'
+  ],
   optionsSuccessStatus: 200
 }));
 app.set('trust proxy', 1);

@@ -108,28 +108,26 @@ router.get("/", requireAuth, async (req, res) => {
     }
 
     // Decrypt all message texts before sending
-    conversations.forEach(msg => {
-      if (msg.text) {
+    conversations.forEach(conversation => {
+      if (conversation.text) {
         try {
-          msg.text = decrypt(msg.text);
+          conversation.text = decrypt(conversation.text);
         } catch (e) {
-          // Fallback: if decryption fails, assume it's plain text
-          msg.text = msg.text;
+          console.error('Error decrypting conversation text:', e);
+          conversation.text = '[decryption error]';
         }
       }
     });
 
     // Decrypt last message text in each conversation before sending
-    conversations.forEach(msg => {
-      if (msg.lastMessage && msg.lastMessage.text) {
-        if (msg.lastMessage.text.includes(':')) {
-          try {
-            msg.lastMessage.text = decrypt(msg.lastMessage.text);
-          } catch (e) {
-            msg.lastMessage.text = '[decryption error]';
-          }
+    conversations.forEach(conversation => {
+      if (conversation.lastMessage && conversation.lastMessage.text) {
+        try {
+          conversation.lastMessage.text = decrypt(conversation.lastMessage.text);
+        } catch (e) {
+          console.error('Error decrypting last message text:', e);
+          conversation.lastMessage.text = '[decryption error]';
         }
-        // else leave as is (plain text)
       }
     });
 
@@ -206,12 +204,11 @@ router.get("/:userId", requireAuth, async (req, res) => {
     // Decrypt messages before sending
     messages.forEach(msg => {
       if (msg.text) {
-        if (msg.text && msg.text.includes(':')) {
-          try {
-            msg.text = decrypt(msg.text);
-          } catch (e) {
-            msg.text = '[decryption error]';
-          }
+        try {
+          msg.text = decrypt(msg.text);
+        } catch (e) {
+          console.error('Error decrypting message text:', e);
+          msg.text = '[decryption error]';
         }
       }
     });

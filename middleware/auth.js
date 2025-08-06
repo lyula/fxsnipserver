@@ -2,12 +2,17 @@ const jwt = require("jsonwebtoken");
 
 // Main authentication middleware (can be called protect or requireAuth)
 function requireAuth(req, res, next) {
+  console.log('Auth middleware called for:', req.method, req.path);
   const authHeader = req.headers.authorization; // Always lowercase
+  console.log('Auth header:', authHeader);
+  
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    console.log('No valid auth header');
     return res.status(401).json({ message: "No token provided" });
   }
 
   const token = authHeader.split(" ")[1];
+  console.log('Token extracted:', token ? 'Token present' : 'No token');
   const decodedRaw = jwt.decode(token);
 
   if (!process.env.JWT_SECRET) {
@@ -16,9 +21,13 @@ function requireAuth(req, res, next) {
   }
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('Token decoded successfully, user:', decoded.id);
+    console.log('Full decoded token:', decoded);
     req.user = decoded;
+    console.log('req.user set to:', req.user);
     next();
   } catch (err) {
+    console.log('Token verification failed:', err.message);
     return res.status(401).json({ message: "Invalid token" });
   }
 }

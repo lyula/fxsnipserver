@@ -81,9 +81,14 @@ const getUserCurrency = (userCountry) => {
 // @access  Private
 const createAd = async (req, res) => {
   try {
+    // Log the incoming request data for debugging
+    console.log('Creating ad with data:', JSON.stringify(req.body, null, 2));
+    console.log('req.user:', req.user);
+    
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
       return res.status(400).json({
         success: false,
         message: 'Validation errors',
@@ -154,7 +159,25 @@ const createAd = async (req, res) => {
         label: userbaseOption.label,
         multiplier: userbaseOption.multiplier
       },
-      userId: req.user._id
+      // Set schedule to start immediately and end after selected duration
+      schedule: {
+        startDate: new Date(), // Start immediately
+        endDate: new Date(Date.now() + (duration * 24 * 60 * 60 * 1000)), // Add duration days in milliseconds
+        timeZone: 'UTC'
+      },
+      // Auto-approve ads (no admin approval needed for now)
+      status: 'active',
+      isApproved: true,
+      approvedAt: new Date(),
+      userId: req.user.id
+    });
+
+    console.log('📅 Ad schedule set:', {
+      startDate: newAd.schedule.startDate,
+      endDate: newAd.schedule.endDate,
+      duration: duration + ' days',
+      status: 'active',
+      isApproved: true
     });
 
     // Calculate pricing
@@ -174,9 +197,16 @@ const createAd = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Ad created successfully',
+      message: 'Ad created successfully and is now LIVE! 🚀',
       data: {
         ad: savedAd,
+        status: 'active',
+        isApproved: true,
+        schedule: {
+          startDate: savedAd.schedule.startDate,
+          endDate: savedAd.schedule.endDate,
+          durationDays: duration
+        },
         pricing: {
           totalUSD: totalPriceUSD,
           totalUserCurrency: savedAd.pricing.userCurrency.convertedPrice,
@@ -206,7 +236,7 @@ const getUserAds = async (req, res) => {
     const status = req.query.status;
     const category = req.query.category;
 
-    const query = { userId: req.user._id };
+    const query = { userId: req.user.id };
     
     if (status) query.status = status;
     if (category) query.category = category;
@@ -257,7 +287,7 @@ const getAdById = async (req, res) => {
     }
 
     // Check if user owns the ad or is admin
-    if (ad.userId._id.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+    if (ad.userId._id.toString() !== req.user.id.toString() && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to access this ad'
@@ -294,7 +324,7 @@ const updateAd = async (req, res) => {
     }
 
     // Check if user owns the ad
-    if (ad.userId.toString() !== req.user._id.toString()) {
+    if (ad.userId.toString() !== req.user.id.toString()) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to update this ad'
@@ -373,7 +403,7 @@ const deleteAd = async (req, res) => {
     }
 
     // Check if user owns the ad
-    if (ad.userId.toString() !== req.user._id.toString()) {
+    if (ad.userId.toString() !== req.user.id.toString()) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to delete this ad'
@@ -518,7 +548,7 @@ const submitAdForApproval = async (req, res) => {
     }
 
     // Check if user owns the ad
-    if (ad.userId.toString() !== req.user._id.toString()) {
+    if (ad.userId.toString() !== req.user.id.toString()) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to submit this ad'
@@ -574,6 +604,39 @@ const getExchangeRates = async (req, res) => {
   }
 };
 
+// Get all active ads (public endpoint)
+const getActiveAds = async (req, res) => {
+  try {
+    const currentDate = new Date();
+    
+    // Find ads that are active and within their schedule period
+    const activeAds = await Ad.find({
+      status: 'active',
+      isApproved: true,
+      'schedule.startDate': { $lte: currentDate },
+      'schedule.endDate': { $gte: currentDate }
+    })
+    .populate('userId', 'username verified profile.profileImage profile.verified countryFlag')
+    .select('title description linkUrl buttonText image video category targetingType schedule createdAt userId')
+    .sort({ createdAt: -1 })
+    .limit(20); // Limit to 20 ads for performance
+
+    console.log(`📢 Found ${activeAds.length} active ads`);
+
+    res.json({
+      success: true,
+      ads: activeAds
+    });
+  } catch (error) {
+    console.error('Error fetching active ads:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching active ads',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   createAd,
   getUserAds,
@@ -582,5 +645,6 @@ module.exports = {
   deleteAd,
   calculatePricing,
   submitAdForApproval,
-  getExchangeRates
+  getExchangeRates,
+  getActiveAds
 };

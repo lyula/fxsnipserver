@@ -9,7 +9,8 @@ const {
   deleteAd,
   calculatePricing,
   submitAdForApproval,
-  getExchangeRates
+  getExchangeRates,
+  getActiveAds
 } = require('../controllers/adController');
 const { protect } = require('../middleware/auth');
 
@@ -31,23 +32,61 @@ const adValidationRules = [
   
   body('image')
     .optional()
-    .isURL()
-    .withMessage('Image must be a valid URL'),
+    .custom((value) => {
+      if (!value) return true;
+      // Allow single URL or array of URLs
+      if (typeof value === 'string') {
+        return /^https?:\/\//.test(value);
+      }
+      if (Array.isArray(value)) {
+        if (value.length > 5) return false; // Max 5 images
+        return value.every(url => typeof url === 'string' && /^https?:\/\//.test(url));
+      }
+      return false;
+    })
+    .withMessage('Image must be a valid URL or array of URLs (max 5)'),
   
   body('imagePublicId')
     .optional()
-    .isString()
-    .withMessage('Image public ID must be a string'),
+    .custom((value) => {
+      if (!value) return true;
+      // Allow single string or array of strings
+      if (typeof value === 'string') return true;
+      if (Array.isArray(value)) {
+        return value.every(id => typeof id === 'string');
+      }
+      return false;
+    })
+    .withMessage('Image public ID must be a string or array of strings'),
   
   body('video')
     .optional()
-    .isURL()
-    .withMessage('Video must be a valid URL'),
+    .custom((value) => {
+      if (!value) return true;
+      // Allow single URL or array of URLs
+      if (typeof value === 'string') {
+        return /^https?:\/\//.test(value);
+      }
+      if (Array.isArray(value)) {
+        if (value.length > 3) return false; // Max 3 videos
+        return value.every(url => typeof url === 'string' && /^https?:\/\//.test(url));
+      }
+      return false;
+    })
+    .withMessage('Video must be a valid URL or array of URLs (max 3)'),
   
   body('videoPublicId')
     .optional()
-    .isString()
-    .withMessage('Video public ID must be a string'),
+    .custom((value) => {
+      if (!value) return true;
+      // Allow single string or array of strings
+      if (typeof value === 'string') return true;
+      if (Array.isArray(value)) {
+        return value.every(id => typeof id === 'string');
+      }
+      return false;
+    })
+    .withMessage('Video public ID must be a string or array of strings'),
   
   body('linkUrl')
     .isURL()
@@ -103,6 +142,7 @@ const pricingValidationRules = [
 
 // Public routes
 router.get('/exchange-rates', getExchangeRates);
+router.get('/active', getActiveAds);
 
 // Protected routes (require authentication)
 router.use(protect);

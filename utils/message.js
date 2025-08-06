@@ -8,18 +8,25 @@ const { encrypt, decrypt } = require("./encrypt");
  * @returns {Promise<Object>} - The message object with decrypted text
  */
 async function createMessage({ from, to, text, replyTo, mediaUrl, mediaPublicId }) {
-  const encryptedText = text ? encrypt(text) : undefined;
-  const msg = await Message.create({
-    from,
-    to,
-    text: encryptedText || '',
-    replyTo,
-    mediaUrl: mediaUrl || null,
-    mediaPublicId: mediaPublicId || null
-  });
-  const msgObj = msg.toObject();
-  msgObj.text = text || '';
-  return msgObj;
+  try {
+    const encryptedText = text ? encrypt(text) : '';
+    const msg = await Message.create({
+      from,
+      to,
+      text: encryptedText,
+      replyTo,
+      mediaUrl: mediaUrl || null,
+      mediaPublicId: mediaPublicId || null
+    });
+    
+    const msgObj = msg.toObject();
+    // Return the original text (not encrypted) for immediate display
+    msgObj.text = text || '';
+    return msgObj;
+  } catch (error) {
+    console.error('Error creating message:', error);
+    throw error;
+  }
 }
 
 module.exports = { createMessage };

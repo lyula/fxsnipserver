@@ -1,3 +1,117 @@
+const Ad = require('../models/Ad');
+const Post = require("../models/Post");
+const User = require("../models/User");
+const Notification = require("../models/Notification");
+
+// Helper function to get active ads for mixing with posts
+const getActiveAds = async (userCountry = null, limit = 5) => {
+  try {
+    console.log(`🎯 Getting active ads for country: ${userCountry}, limit: ${limit}`);
+    const now = new Date();
+    
+    // Query for active, approved ads that are currently running
+    const adQuery = {
+      status: 'active',
+      isApproved: true,
+      'schedule.startDate': { $lte: now },
+      'schedule.endDate': { $gte: now }
+    };
+
+    console.log('📊 Initial ad query:', JSON.stringify(adQuery, null, 2));
+
+    // Add country targeting if user has a country
+    if (userCountry) {
+      console.log(`🎯 User has country: ${userCountry}, adding targeting logic`);
+      adQuery.$or = [
+        { targetingType: 'global' }, // Show all global ads
+        { 
+          targetingType: 'specific',
+          targetCountries: { $in: [userCountry] } // Show specific ads targeting user's country
+        }
+      ];
+      console.log('✅ Query includes: GLOBAL ads + ads targeting', userCountry);
+    } else {
+      console.log('🌍 No user country, showing only global ads');
+      // If no country, only show global ads
+      adQuery.targetingType = 'global';
+    }
+
+    console.log('🌍 Final ad query with targeting:', JSON.stringify(adQuery, null, 2));
+
+    const ads = await Ad.find(adQuery)
+      .populate({
+        path: 'userId',
+        select: 'username profile profileImage'
+      })
+      .sort({ 
+        priority: -1, // Higher priority first
+        createdAt: -1   // Newer ads first
+      })
+      .limit(limit)
+      .lean();
+
+    console.log(`📈 Found ${ads.length} active ads in database`);
+    
+    // FOR TESTING: Create a dummy ad if none exist
+    if (ads.length === 0) {
+      console.log('🧪 No active ads found, creating test GLOBAL ad for debugging');
+      const testAd = {
+        _id: 'test-ad-12345',
+        type: 'ad',
+        title: 'Global Test Forex Ad',
+        description: 'This is a GLOBAL test ad that should appear in ALL countries!',
+        image: null,
+        video: null,
+        targetUrl: 'https://example.com',
+        buttonText: 'Learn More',
+        category: 'Education',
+        targetingType: 'global', // Make it global
+        userId: { username: 'TestUser', profile: {}, profileImage: null },
+        author: { username: 'TestUser', profile: {}, profileImage: null },
+        createdAt: new Date(),
+        analytics: { impressions: 0, clicks: 0 }
+      };
+      ads.push(testAd);
+      console.log('� Added GLOBAL test ad - should display in ALL countries including Kenya!');
+    }
+    
+    if (ads.length > 0) {
+      console.log('🎨 Sample ad:', {
+        id: ads[0]._id,
+        title: ads[0].title,
+        status: ads[0].status,
+        isApproved: ads[0].isApproved,
+        targetingType: ads[0].targetingType
+      });
+    }
+
+    // Transform ads to have similar structure to posts for frontend consistency
+    const transformedAds = ads.map(ad => ({
+      ...ad,
+      _id: ad._id,
+      type: 'ad', // Mark as ad for frontend handling
+      author: ad.userId, // Map userId to author for consistency
+      content: ad.description,
+      createdAt: ad.createdAt,
+      // Keep ad-specific fields
+      title: ad.title,
+      category: ad.category,
+      targetUrl: ad.linkUrl, // Map linkUrl to targetUrl for frontend
+      buttonText: ad.buttonText || 'Learn More',
+      image: ad.image,
+      video: ad.video,
+      impressions: ad.analytics?.impressions || 0,
+      clicks: ad.analytics?.clicks || 0
+    }));
+
+    console.log(`✅ Returning ${transformedAds.length} transformed ads`);
+    return transformedAds;
+  } catch (error) {
+    console.error('❌ Error fetching active ads:', error);
+    return [];
+  }
+};
+
 // Search posts by content or author username
 exports.searchPosts = async (req, res) => {
   try {
@@ -19,7 +133,6 @@ exports.searchPosts = async (req, res) => {
     const userIds = userMatches.map(u => u._id);
 
     // Find posts where content matches or author is a matching user
-    const Post = require("../models/Post");
     const query = {
       $or: [
         { content: { $regex: q, $options: "i" } },
@@ -62,8 +175,7 @@ exports.searchPosts = async (req, res) => {
     res.status(500).json({ error: "Failed to search posts", details: error.message });
   }
 };
-const Post = require("../models/Post");
-const Notification = require("../models/Notification");
+
 const cloudinary = require('cloudinary').v2;
 
 cloudinary.config({
@@ -113,6 +225,9 @@ exports.createPost = async (req, res) => {
 // Enhanced Get Posts with Fresh Content that targets unseen posts from today
 exports.getPosts = async (req, res) => {
   try {
+    console.log('🎯 [getPosts] API called with user:', req.user?.username || 'Anonymous');
+    console.log('🎯 [getPosts] User country:', req.user?.country || 'No country');
+    
     const { 
       limit = 20,
       offset = 0,
@@ -127,13 +242,12 @@ exports.getPosts = async (req, res) => {
     const limitNum = parseInt(limit);
     const offsetNum = parseInt(offset);
 
-    // Get user's viewing history from the last session (you might want to store this in DB)
-    // For now, we'll use time-based logic
-    
-    let query = {};
+    console.log('🎯 [getPosts] Request params:', { limit, offset, scrollDirection, refreshFeed, loadFresh });
+
+    let query = {}; // Start with empty query to get all posts
     let sortOptions = { createdAt: -1 };
 
-    // FRESH CONTENT LOGIC: Get posts from the last few hours to the current day
+    // FRESH CONTENT LOGIC: Only apply date filtering when specifically requested
     if (loadFresh === 'true' || scrollDirection === 'fresh') {
       console.log('Loading fresh content: posts from the last few minutes to today');
       
@@ -157,6 +271,8 @@ exports.getPosts = async (req, res) => {
       };
     }
 
+    console.log('Query for posts:', query);
+
     // Get posts with populated fields
     const posts = await Post.find(query)
       .populate({
@@ -177,7 +293,10 @@ exports.getPosts = async (req, res) => {
       .sort(sortOptions)
       .lean(); // Use lean for better performance
 
+    console.log(`Found ${posts ? posts.length : 0} posts in database`);
+
     if (!posts || posts.length === 0) {
+      console.log('No posts found, returning empty response');
       return res.status(200).json({
         posts: [],
         hasMore: false,
@@ -314,18 +433,49 @@ exports.getPosts = async (req, res) => {
       }
     }
 
+    // Get user's country for ad targeting
+    const userCountry = req.user?.countryCode || req.user?.country || null;
+    
+    // Fetch active ads for mixing with posts
+    const activeAds = await getActiveAds(userCountry, Math.ceil(limitNum / 4)); // Get about 25% ads relative to posts requested
+    
+    // Mix ads with posts intelligently
+    const mixedContent = [];
+    let adIndex = 0;
+    
+    paginatedPosts.forEach((post, index) => {
+      // Add the post
+      mixedContent.push(post);
+      
+      // Insert an ad every 3-4 posts, but not immediately after another ad
+      const shouldInsertAd = (index + 1) % 3 === 0 && // Every 3rd post
+                            adIndex < activeAds.length && // Have ads available
+                            mixedContent[mixedContent.length - 2]?.type !== 'ad'; // Previous item wasn't an ad
+      
+      if (shouldInsertAd) {
+        const ad = { ...activeAds[adIndex] };
+        ad._scrollPosition = offsetNum + index + adIndex + 0.5; // Position between posts
+        ad._isAd = true;
+        mixedContent.push(ad);
+        adIndex++;
+      }
+    });
+
     // Always have more content available through cycling
     const hasMore = totalPosts > 0; // Always true if we have posts (cycling)
     const completedCycles = Math.floor(offsetNum / Math.max(totalPosts, 1));
     const isRepeatingContent = completedCycles > 0;
 
+    console.log(`Returning ${mixedContent.length} items (${paginatedPosts.length} posts + ${adIndex} ads)`);
+
     res.status(200).json({
-      posts: paginatedPosts,
+      posts: mixedContent, // Now contains both posts and ads
       hasMore,
       totalAvailablePosts: totalPosts,
       nextOffset: offsetNum + limitNum,
       scrollDirection,
       freshContentCount: 0,
+      adsIncluded: adIndex,
       cyclingInfo: {
         completedCycles,
         positionInCurrentCycle: offsetNum % Math.max(totalPosts, 1),
@@ -340,6 +490,81 @@ exports.getPosts = async (req, res) => {
       error: "Failed to fetch posts",
       details: error.message
     });
+  }
+};
+
+// Track ad impression (when ad is viewed)
+exports.trackAdImpression = async (req, res) => {
+  try {
+    const { adId } = req.params;
+    const userId = req.user?.id;
+
+    const ad = await Ad.findById(adId);
+    if (!ad) {
+      return res.status(404).json({ error: 'Ad not found' });
+    }
+
+    // Initialize analytics if not exists
+    if (!ad.analytics) {
+      ad.analytics = { impressions: 0, clicks: 0, uniqueViews: [] };
+    }
+
+    // Track unique impression
+    if (userId && !ad.analytics.uniqueViews.includes(userId)) {
+      ad.analytics.uniqueViews.push(userId);
+    }
+
+    // Increment total impressions
+    ad.analytics.impressions = (ad.analytics.impressions || 0) + 1;
+    ad.analytics.lastImpressionAt = new Date();
+
+    await ad.save();
+
+    res.status(200).json({ 
+      success: true, 
+      impressions: ad.analytics.impressions 
+    });
+  } catch (error) {
+    console.error('Error tracking ad impression:', error);
+    res.status(500).json({ error: 'Failed to track impression' });
+  }
+};
+
+// Track ad click (when user clicks on ad)
+exports.trackAdClick = async (req, res) => {
+  try {
+    const { adId } = req.params;
+    const userId = req.user?.id;
+
+    const ad = await Ad.findById(adId);
+    if (!ad) {
+      return res.status(404).json({ error: 'Ad not found' });
+    }
+
+    // Initialize analytics if not exists
+    if (!ad.analytics) {
+      ad.analytics = { impressions: 0, clicks: 0, uniqueViews: [], uniqueClicks: [] };
+    }
+
+    // Track unique click
+    if (userId && !ad.analytics.uniqueClicks.includes(userId)) {
+      ad.analytics.uniqueClicks.push(userId);
+    }
+
+    // Increment total clicks
+    ad.analytics.clicks = (ad.analytics.clicks || 0) + 1;
+    ad.analytics.lastClickAt = new Date();
+
+    await ad.save();
+
+    res.status(200).json({ 
+      success: true, 
+      clicks: ad.analytics.clicks,
+      targetUrl: ad.targetUrl // Return target URL for redirection
+    });
+  } catch (error) {
+    console.error('Error tracking ad click:', error);
+    res.status(500).json({ error: 'Failed to track click' });
   }
 };
 

@@ -18,68 +18,84 @@ const adSchema = new mongoose.Schema({
     minLength: [10, 'Description must be at least 10 characters']
   },
   
-  // Media Content (uploaded to Cloudinary)
+  // Media Content (uploaded to Cloudinary) - Support multiple images/videos
   image: {
-    type: String,
+    type: mongoose.Schema.Types.Mixed, // Can be string or array
     validate: [
       {
         validator: function(v) {
           if (!v) return true; // Optional
-          return /^https:\/\/res\.cloudinary\.com\//.test(v);
+          if (typeof v === 'string') {
+            return /^https?:\/\//.test(v);
+          }
+          if (Array.isArray(v)) {
+            if (v.length > 5) return false; // Max 5 images
+            return v.every(url => typeof url === 'string' && /^https?:\/\//.test(url));
+          }
+          return false;
         },
-        message: 'Image must be a valid Cloudinary URL'
+        message: 'Image must be a valid URL or array of URLs (max 5)'
       },
       {
         validator: function(v) {
           // At least one media type must be provided
           return !!(v || this.video);
         },
-        message: 'Ad must include either an image or video'
+        message: 'Ad must include either images or videos'
       }
     ]
   },
   
   imagePublicId: {
-    type: String,
+    type: mongoose.Schema.Types.Mixed, // Can be string or array
     validate: {
       validator: function(v) {
         // If image exists, imagePublicId should also exist
         if (this.image && !v) return false;
+        if (Array.isArray(this.image) && (!Array.isArray(v) || this.image.length !== v.length)) return false;
         return true;
       },
-      message: 'Image public ID is required when image is provided'
+      message: 'Image public ID(s) required when image(s) provided'
     }
   },
   
   video: {
-    type: String,
+    type: mongoose.Schema.Types.Mixed, // Can be string or array
     validate: [
       {
         validator: function(v) {
           if (!v) return true; // Optional
-          return /^https:\/\/res\.cloudinary\.com\//.test(v);
+          if (typeof v === 'string') {
+            return /^https?:\/\//.test(v);
+          }
+          if (Array.isArray(v)) {
+            if (v.length > 3) return false; // Max 3 videos
+            return v.every(url => typeof url === 'string' && /^https?:\/\//.test(url));
+          }
+          return false;
         },
-        message: 'Video must be a valid Cloudinary URL'
+        message: 'Video must be a valid URL or array of URLs (max 3)'
       },
       {
         validator: function(v) {
           // At least one media type must be provided
           return !!(v || this.image);
         },
-        message: 'Ad must include either an image or video'
+        message: 'Ad must include either images or videos'
       }
     ]
   },
   
   videoPublicId: {
-    type: String,
+    type: mongoose.Schema.Types.Mixed, // Can be string or array
     validate: {
       validator: function(v) {
         // If video exists, videoPublicId should also exist
         if (this.video && !v) return false;
+        if (Array.isArray(this.video) && (!Array.isArray(v) || this.video.length !== v.length)) return false;
         return true;
       },
-      message: 'Video public ID is required when video is provided'
+      message: 'Video public ID(s) required when video(s) provided'
     }
   },
   
@@ -269,6 +285,32 @@ const adSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
+  },
+  
+  // Analytics and performance tracking
+  analytics: {
+    impressions: {
+      type: Number,
+      default: 0
+    },
+    clicks: {
+      type: Number,
+      default: 0
+    },
+    uniqueViews: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }],
+    uniqueClicks: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }],
+    lastImpressionAt: Date,
+    lastClickAt: Date,
+    conversionRate: {
+      type: Number,
+      default: 0
+    }
   }
 }, {
   timestamps: true,
@@ -282,6 +324,8 @@ adSchema.index({ category: 1, status: 1 });
 adSchema.index({ 'targetCountries.name': 1 });
 adSchema.index({ createdAt: -1 });
 adSchema.index({ 'schedule.startDate': 1, 'schedule.endDate': 1 });
+adSchema.index({ 'analytics.impressions': -1 }); // For sorting by performance
+adSchema.index({ status: 1, isApproved: 1, 'schedule.startDate': 1, 'schedule.endDate': 1 }); // For active ad queries
 
 // Virtual fields
 adSchema.virtual('isActive').get(function() {
@@ -301,6 +345,19 @@ adSchema.virtual('daysRemaining').get(function() {
 adSchema.virtual('totalSpent').get(function() {
   const daysElapsed = this.duration - this.daysRemaining;
   return Math.max(0, (this.pricing.totalPriceUSD / this.duration) * daysElapsed);
+});
+
+// Virtual field for click-through rate (CTR)
+adSchema.virtual('clickThroughRate').get(function() {
+  if (!this.analytics || this.analytics.impressions === 0) return 0;
+  return ((this.analytics.clicks || 0) / this.analytics.impressions * 100).toFixed(2);
+});
+
+// Virtual field for unique engagement rate
+adSchema.virtual('uniqueEngagementRate').get(function() {
+  if (!this.analytics || !this.analytics.uniqueViews || this.analytics.uniqueViews.length === 0) return 0;
+  const uniqueClicks = this.analytics.uniqueClicks ? this.analytics.uniqueClicks.length : 0;
+  return ((uniqueClicks / this.analytics.uniqueViews.length) * 100).toFixed(2);
 });
 
 // Pre-save middleware
