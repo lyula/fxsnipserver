@@ -118,6 +118,9 @@ router.get("/browse", requireAuth, async (req, res) => {
     const currentUser = await User.findById(userId).select("followingRaw followingHashed country");
     const currentUserFollowing = currentUser?.followingRaw || [];
 
+    console.log(`Debug: filter=${filter}, search="${search}", userId=${userId}`);
+    console.log(`Debug: currentUser.country=${currentUser?.country}, followingCount=${currentUserFollowing.length}`);
+
     // Helper function to check if user has profile image
     const hasProfileImage = (user) => {
       return user.profile && 
@@ -155,6 +158,10 @@ router.get("/browse", requireAuth, async (req, res) => {
       query.$or = [
         { username: { $regex: search.trim(), $options: "i" } }
       ];
+      // When searching, don't exclude followed users - we want to show them too
+    } else {
+      // Only exclude followed users when not searching
+      query._id = { $ne: userId, $nin: currentUserFollowing };
     }
 
     let sortOptions = {};
@@ -163,7 +170,36 @@ router.get("/browse", requireAuth, async (req, res) => {
 
     switch (filter) {
       case 'recommended':
-        // Priority algorithm for recommendations:
+        // If user is searching, bypass complex recommendation logic and do simple search
+        if (search.trim()) {
+          const searchUsers = await User.find(query)
+            .select("_id username verified profile country countryFlag followers createdAt")
+            .sort({ followers: -1, createdAt: -1 })
+            .skip(skip)
+            .limit(limitNum * 2);
+
+          let searchUsersFormatted = searchUsers.map(user => {
+            const userObj = user.toObject();
+            if (!userObj.profile) userObj.profile = { profileImage: "" };
+            if (!userObj.profile.profileImage) userObj.profile.profileImage = "";
+            
+            // Check if user is already being followed
+            const isFollowed = currentUserFollowing.some(id => String(id) === String(user._id));
+            
+            return {
+              ...userObj,
+              reason: 'search_result',
+              commonFollower: null,
+              isFollowed: isFollowed
+            };
+          });
+
+          users = sortWithProfileImagePriority(searchUsersFormatted).slice(0, limitNum);
+          total = await User.countDocuments(query);
+          break;
+        }
+
+        // Priority algorithm for recommendations (when not searching):
         // 1. Users followed by people you follow (friends of friends)
         // 2. Users from same country/region  
         // 3. Users with most followers
@@ -212,6 +248,9 @@ router.get("/browse", requireAuth, async (req, res) => {
               if (!userObj.profile) userObj.profile = { profileImage: "" };
               if (!userObj.profile.profileImage) userObj.profile.profileImage = "";
               
+              // Check if user is already being followed (should be false for recommendations, but good to be explicit)
+              const isFollowed = currentUserFollowing.some(id => String(id) === String(user._id));
+              
               return {
                 ...userObj,
                 reason: 'mutual_following',
@@ -220,7 +259,8 @@ router.get("/browse", requireAuth, async (req, res) => {
                   username: commonFollowers[user._id].username,
                   profile: commonFollowers[user._id].profile,
                   verified: commonFollowers[user._id].verified
-                } : null
+                } : null,
+                isFollowed: isFollowed
               };
             });
 
@@ -253,10 +293,14 @@ router.get("/browse", requireAuth, async (req, res) => {
             if (!userObj.profile) userObj.profile = { profileImage: "" };
             if (!userObj.profile.profileImage) userObj.profile.profileImage = "";
             
+            // Check if user is already being followed (should be false for recommendations, but good to be explicit)
+            const isFollowed = currentUserFollowing.some(id => String(id) === String(user._id));
+            
             return {
               ...userObj,
               reason: 'same_country',
-              commonFollower: null
+              commonFollower: null,
+              isFollowed: isFollowed
             };
           });
 
@@ -296,10 +340,14 @@ router.get("/browse", requireAuth, async (req, res) => {
             if (!userObj.profile) userObj.profile = { profileImage: "" };
             if (!userObj.profile.profileImage) userObj.profile.profileImage = "";
             
+            // Check if user is already being followed
+            const isFollowed = currentUserFollowing.some(id => String(id) === String(user._id));
+            
             return {
               ...userObj,
               reason: users.length > 0 ? 'popular' : 'random',
-              commonFollower: null
+              commonFollower: null,
+              isFollowed: isFollowed
             };
           });
 
@@ -309,10 +357,13 @@ router.get("/browse", requireAuth, async (req, res) => {
         }
 
         // Get total for pagination
-        total = await User.countDocuments({
-          ...query,
-          _id: { $ne: userId, $nin: currentUserFollowing }
-        });
+        if (!search.trim()) {
+          total = await User.countDocuments({
+            ...query,
+            _id: { $ne: userId, $nin: currentUserFollowing }
+          });
+        }
+        // Note: total is already set above for search queries
         break;
 
       case 'most_followers':
@@ -322,8 +373,7 @@ router.get("/browse", requireAuth, async (req, res) => {
         ]);
         const avgFollowers = avgFollowersResult.length > 0 ? avgFollowersResult[0].avgFollowers : 0;
         
-        // Only show users with more than average followers
-        query._id = { $ne: userId, $nin: currentUserFollowing };
+        // Add follower requirement but keep existing _id filter
         query.followers = { $gte: Math.max(1, Math.ceil(avgFollowers)) }; // At least average, minimum of 1
         sortOptions = { followers: -1, createdAt: -1 };
         break;
@@ -331,39 +381,49 @@ router.get("/browse", requireAuth, async (req, res) => {
       case 'same_region':
         if (currentUser.country) {
           query.country = currentUser.country;
-          query._id = { $ne: userId, $nin: currentUserFollowing };
+          // Keep existing _id filter, just add country requirement
         }
         sortOptions = { followers: -1, createdAt: -1 };
         break;
 
       case 'recent':
-        query._id = { $ne: userId, $nin: currentUserFollowing };
+        // Keep existing _id filter, just set sort options
         sortOptions = { createdAt: -1 };
         break;
 
       default:
-        query._id = { $ne: userId, $nin: currentUserFollowing };
+        // Keep existing _id filter, just set sort options
         sortOptions = { createdAt: -1 };
     }
 
     // For non-recommended filters, use standard query with profile image priority
     if (filter !== 'recommended') {
+      console.log(`Debug: Executing query for filter=${filter}:`, JSON.stringify(query, null, 2));
+      console.log(`Debug: Sort options:`, sortOptions);
+      
       const foundUsers = await User.find(query)
         .select("_id username verified profile country countryFlag followers createdAt")
         .sort(sortOptions)
         .skip(skip)
         .limit(limitNum * 2); // Get more to allow for better sorting
 
+      console.log(`Debug: Found ${foundUsers.length} users for filter=${filter}`);
+
       let usersFormatted = foundUsers.map(user => {
         const userObj = user.toObject();
         if (!userObj.profile) userObj.profile = { profileImage: "" };
         if (!userObj.profile.profileImage) userObj.profile.profileImage = "";
         
+        // Check if user is already being followed
+        const isFollowed = currentUserFollowing.some(id => String(id) === String(user._id));
+        
         return {
           ...userObj,
-          reason: filter === 'most_followers' ? 'most_followers' : 
+          reason: search.trim() ? 'search_result' : 
+                 filter === 'most_followers' ? 'most_followers' : 
                  filter === 'same_region' ? 'same_country' : 'recent',
-          commonFollower: null
+          commonFollower: null,
+          isFollowed: isFollowed
         };
       });
 
