@@ -265,21 +265,29 @@ router.get("/browse", requireAuth, async (req, res) => {
           users = [...users, ...countryUsersFormatted.slice(0, remainingLimit)];
         }
 
-        // If still need more users, add popular users
+        // If still need more users, add popular users (above average followers)
         if (users.length < limitNum) {
           const remainingLimit = limitNum - users.length;
           const existingIds = users.map(u => u._id);
+          
+          // Calculate average followers to determine what "popular" means
+          const avgFollowersResult = await User.aggregate([
+            { $group: { _id: null, avgFollowers: { $avg: "$followers" } } }
+          ]);
+          const avgFollowers = avgFollowersResult.length > 0 ? avgFollowersResult[0].avgFollowers : 0;
           
           const popularQuery = {
             ...query,
             _id: { 
               ...query._id,
               $nin: [...currentUserFollowing, ...existingIds]
-            }
+            },
+            followers: { $gte: Math.max(1, Math.ceil(avgFollowers)) } // Only users with above-average followers
           };
 
           const popularUsers = await User.find(popularQuery)
             .select("_id username verified profile country countryFlag followers createdAt")
+            .sort({ followers: -1, createdAt: -1 }) // Sort by followers descending
             .skip(skip)
             .limit(remainingLimit * 2); // Get more to allow for better sorting
 
@@ -308,7 +316,15 @@ router.get("/browse", requireAuth, async (req, res) => {
         break;
 
       case 'most_followers':
+        // Calculate average followers to determine what "popular" means
+        const avgFollowersResult = await User.aggregate([
+          { $group: { _id: null, avgFollowers: { $avg: "$followers" } } }
+        ]);
+        const avgFollowers = avgFollowersResult.length > 0 ? avgFollowersResult[0].avgFollowers : 0;
+        
+        // Only show users with more than average followers
         query._id = { $ne: userId, $nin: currentUserFollowing };
+        query.followers = { $gte: Math.max(1, Math.ceil(avgFollowers)) }; // At least average, minimum of 1
         sortOptions = { followers: -1, createdAt: -1 };
         break;
 
