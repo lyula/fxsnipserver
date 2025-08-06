@@ -118,6 +118,34 @@ router.get("/browse", requireAuth, async (req, res) => {
     const currentUser = await User.findById(userId).select("followingRaw followingHashed country");
     const currentUserFollowing = currentUser?.followingRaw || [];
 
+    // Helper function to check if user has profile image
+    const hasProfileImage = (user) => {
+      return user.profile && 
+             typeof user.profile === 'object' && 
+             user.profile.profileImage && 
+             user.profile.profileImage.trim() !== '';
+    };
+
+    // Helper function to sort users with profile images first
+    const sortWithProfileImagePriority = (usersArray) => {
+      return usersArray.sort((a, b) => {
+        const aHasImage = hasProfileImage(a);
+        const bHasImage = hasProfileImage(b);
+        
+        // Users with profile images come first
+        if (aHasImage && !bHasImage) return -1;
+        if (!aHasImage && bHasImage) return 1;
+        
+        // If both have images or both don't have images, sort by followers then by creation date
+        if (a.followers !== b.followers) {
+          return (b.followers || 0) - (a.followers || 0);
+        }
+        
+        // Then by creation date (newest first)
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+    };
+
     let query = {
       _id: { $ne: userId }, // Exclude current user
     };
@@ -177,10 +205,9 @@ router.get("/browse", requireAuth, async (req, res) => {
 
             const mutualUsers = await User.find(mutualQuery)
               .select("_id username verified profile country countryFlag followers createdAt")
-              .sort({ followers: -1, createdAt: -1 })
-              .limit(limitNum);
+              .limit(limitNum * 2); // Get more to allow for better sorting
 
-            users = mutualUsers.map(user => {
+            let mutualUsersFormatted = mutualUsers.map(user => {
               const userObj = user.toObject();
               if (!userObj.profile) userObj.profile = { profileImage: "" };
               if (!userObj.profile.profileImage) userObj.profile.profileImage = "";
@@ -196,6 +223,10 @@ router.get("/browse", requireAuth, async (req, res) => {
                 } : null
               };
             });
+
+            // Sort with profile image priority
+            mutualUsersFormatted = sortWithProfileImagePriority(mutualUsersFormatted);
+            users = mutualUsersFormatted.slice(0, limitNum);
           }
         }
 
@@ -215,10 +246,9 @@ router.get("/browse", requireAuth, async (req, res) => {
 
           const countryUsers = await User.find(countryQuery)
             .select("_id username verified profile country countryFlag followers createdAt")
-            .sort({ followers: -1, createdAt: -1 })
-            .limit(remainingLimit);
+            .limit(remainingLimit * 2); // Get more to allow for better sorting
 
-          const countryUsersFormatted = countryUsers.map(user => {
+          let countryUsersFormatted = countryUsers.map(user => {
             const userObj = user.toObject();
             if (!userObj.profile) userObj.profile = { profileImage: "" };
             if (!userObj.profile.profileImage) userObj.profile.profileImage = "";
@@ -230,7 +260,9 @@ router.get("/browse", requireAuth, async (req, res) => {
             };
           });
 
-          users = [...users, ...countryUsersFormatted];
+          // Sort with profile image priority
+          countryUsersFormatted = sortWithProfileImagePriority(countryUsersFormatted);
+          users = [...users, ...countryUsersFormatted.slice(0, remainingLimit)];
         }
 
         // If still need more users, add popular users
@@ -248,11 +280,10 @@ router.get("/browse", requireAuth, async (req, res) => {
 
           const popularUsers = await User.find(popularQuery)
             .select("_id username verified profile country countryFlag followers createdAt")
-            .sort({ followers: -1, createdAt: -1 })
             .skip(skip)
-            .limit(remainingLimit);
+            .limit(remainingLimit * 2); // Get more to allow for better sorting
 
-          const popularUsersFormatted = popularUsers.map(user => {
+          let popularUsersFormatted = popularUsers.map(user => {
             const userObj = user.toObject();
             if (!userObj.profile) userObj.profile = { profileImage: "" };
             if (!userObj.profile.profileImage) userObj.profile.profileImage = "";
@@ -264,7 +295,9 @@ router.get("/browse", requireAuth, async (req, res) => {
             };
           });
 
-          users = [...users, ...popularUsersFormatted];
+          // Sort with profile image priority
+          popularUsersFormatted = sortWithProfileImagePriority(popularUsersFormatted);
+          users = [...users, ...popularUsersFormatted.slice(0, remainingLimit)];
         }
 
         // Get total for pagination
@@ -297,15 +330,15 @@ router.get("/browse", requireAuth, async (req, res) => {
         sortOptions = { createdAt: -1 };
     }
 
-    // For non-recommended filters, use standard query
+    // For non-recommended filters, use standard query with profile image priority
     if (filter !== 'recommended') {
       const foundUsers = await User.find(query)
         .select("_id username verified profile country countryFlag followers createdAt")
         .sort(sortOptions)
         .skip(skip)
-        .limit(limitNum);
+        .limit(limitNum * 2); // Get more to allow for better sorting
 
-      users = foundUsers.map(user => {
+      let usersFormatted = foundUsers.map(user => {
         const userObj = user.toObject();
         if (!userObj.profile) userObj.profile = { profileImage: "" };
         if (!userObj.profile.profileImage) userObj.profile.profileImage = "";
@@ -317,6 +350,9 @@ router.get("/browse", requireAuth, async (req, res) => {
           commonFollower: null
         };
       });
+
+      // Sort with profile image priority
+      users = sortWithProfileImagePriority(usersFormatted).slice(0, limitNum);
 
       total = await User.countDocuments(query);
     }
