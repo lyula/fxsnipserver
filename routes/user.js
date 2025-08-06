@@ -384,4 +384,118 @@ router.post("/profile-images", async (req, res) => {
   }
 });
 
+// Get profile suggestions for a user
+router.get("/suggestions/:userId", requireAuth, async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const currentUser = await User.findById(userId).select("followingHashed followingRaw country");
+    
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const suggestions = [];
+    const maxSuggestions = 10;
+    const currentUserFollowing = currentUser.followingRaw || [];
+    const currentUserFollowingHashed = currentUser.followingHashed || [];
+
+    // Strategy 1: Find users followed by people the current user follows (friends of friends)
+    if (currentUserFollowing.length > 0) {
+      // Get users that the current user's following are following
+      const friendsOfFriends = await User.find({
+        _id: { $in: currentUserFollowing }
+      }).select("followingRaw username");
+
+      const potentialSuggestions = new Set();
+      const commonFollowers = {};
+
+      for (const friend of friendsOfFriends) {
+        if (friend.followingRaw && friend.followingRaw.length > 0) {
+          for (const suggestedUserId of friend.followingRaw) {
+            // Skip if it's the current user or already following
+            if (String(suggestedUserId) === String(userId) || 
+                currentUserFollowing.some(id => String(id) === String(suggestedUserId))) {
+              continue;
+            }
+            
+            potentialSuggestions.add(String(suggestedUserId));
+            
+            // Track who the common follower is
+            if (!commonFollowers[suggestedUserId]) {
+              commonFollowers[suggestedUserId] = friend;
+            }
+          }
+        }
+      }
+
+      // Get detailed info for these suggestions
+      if (potentialSuggestions.size > 0) {
+        const suggestedUsers = await User.find({
+          _id: { $in: Array.from(potentialSuggestions) }
+        }).select("_id username verified profile country countryFlag").limit(6);
+
+        for (const user of suggestedUsers) {
+          suggestions.push({
+            ...user.toObject(),
+            commonFollower: commonFollowers[user._id] ? {
+              _id: commonFollowers[user._id]._id,
+              username: commonFollowers[user._id].username
+            } : null,
+            reason: 'mutual_following'
+          });
+        }
+      }
+    }
+
+    // Strategy 2: If we don't have enough suggestions, find users from the same country
+    if (suggestions.length < maxSuggestions && currentUser.country) {
+      const countryUsers = await User.find({
+        country: currentUser.country,
+        _id: { 
+          $ne: userId,
+          $nin: [...currentUserFollowing, ...suggestions.map(s => s._id)]
+        }
+      }).select("_id username verified profile country countryFlag")
+        .limit(maxSuggestions - suggestions.length);
+
+      for (const user of countryUsers) {
+        suggestions.push({
+          ...user.toObject(),
+          commonFollower: null,
+          reason: 'same_country'
+        });
+      }
+    }
+
+    // Strategy 3: If still not enough, get random active users
+    if (suggestions.length < maxSuggestions) {
+      const randomUsers = await User.find({
+        _id: { 
+          $ne: userId,
+          $nin: [...currentUserFollowing, ...suggestions.map(s => s._id)]
+        }
+      }).select("_id username verified profile country countryFlag")
+        .limit(maxSuggestions - suggestions.length)
+        .sort({ createdAt: -1 }); // Get recent users
+
+      for (const user of randomUsers) {
+        suggestions.push({
+          ...user.toObject(),
+          commonFollower: null,
+          reason: 'random'
+        });
+      }
+    }
+
+    res.json({ 
+      suggestions: suggestions.slice(0, maxSuggestions),
+      total: suggestions.length 
+    });
+
+  } catch (err) {
+    console.error("Error getting profile suggestions:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 module.exports = router;
