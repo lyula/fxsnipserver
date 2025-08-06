@@ -395,7 +395,7 @@ router.get("/suggestions/:userId", requireAuth, async (req, res) => {
     }
 
     const suggestions = [];
-    const maxSuggestions = 10;
+    const maxSuggestions = 15; // Increased to provide more options for frontend filtering
     const currentUserFollowing = currentUser.followingRaw || [];
     const currentUserFollowingHashed = currentUser.followingHashed || [];
 
@@ -404,7 +404,7 @@ router.get("/suggestions/:userId", requireAuth, async (req, res) => {
       // Get users that the current user's following are following
       const friendsOfFriends = await User.find({
         _id: { $in: currentUserFollowing }
-      }).select("followingRaw username");
+      }).select("followingRaw username profile verified");
 
       const potentialSuggestions = new Set();
       const commonFollowers = {};
@@ -432,7 +432,7 @@ router.get("/suggestions/:userId", requireAuth, async (req, res) => {
       if (potentialSuggestions.size > 0) {
         const suggestedUsers = await User.find({
           _id: { $in: Array.from(potentialSuggestions) }
-        }).select("_id username verified profile country countryFlag").limit(6);
+        }).select("_id username verified profile country countryFlag").limit(8);
 
         for (const user of suggestedUsers) {
           const userObj = user.toObject();
@@ -444,7 +444,9 @@ router.get("/suggestions/:userId", requireAuth, async (req, res) => {
             ...userObj,
             commonFollower: commonFollowers[user._id] ? {
               _id: commonFollowers[user._id]._id,
-              username: commonFollowers[user._id].username
+              username: commonFollowers[user._id].username,
+              profile: commonFollowers[user._id].profile,
+              verified: commonFollowers[user._id].verified
             } : null,
             reason: 'mutual_following'
           });
