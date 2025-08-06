@@ -99,6 +99,245 @@ router.get("/search", requireAuth, async (req, res) => {
   res.json({ users });
 });
 
+// Browse all users with advanced filtering and pagination
+router.get("/browse", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const {
+      search = '',
+      filter = 'recommended',
+      page = 1,
+      limit = 20
+    } = req.query;
+
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit))); // Cap at 50 users per page
+    const skip = (pageNum - 1) * limitNum;
+
+    // Get current user's following list
+    const currentUser = await User.findById(userId).select("followingRaw followingHashed country");
+    const currentUserFollowing = currentUser?.followingRaw || [];
+
+    let query = {
+      _id: { $ne: userId }, // Exclude current user
+    };
+
+    // Add search filter if provided
+    if (search.trim()) {
+      query.$or = [
+        { username: { $regex: search.trim(), $options: "i" } }
+      ];
+    }
+
+    let sortOptions = {};
+    let users = [];
+    let total = 0;
+
+    switch (filter) {
+      case 'recommended':
+        // Priority algorithm for recommendations:
+        // 1. Users followed by people you follow (friends of friends)
+        // 2. Users from same country/region  
+        // 3. Users with most followers
+        // 4. Recent users
+
+        // Get friends of friends first
+        if (currentUserFollowing.length > 0) {
+          const friendsOfFriends = await User.find({
+            _id: { $in: currentUserFollowing }
+          }).select("followingRaw username profile verified");
+
+          const potentialSuggestions = new Set();
+          const commonFollowers = {};
+
+          for (const friend of friendsOfFriends) {
+            if (friend.followingRaw && friend.followingRaw.length > 0) {
+              for (const suggestedUserId of friend.followingRaw) {
+                if (String(suggestedUserId) === String(userId) || 
+                    currentUserFollowing.some(id => String(id) === String(suggestedUserId))) {
+                  continue;
+                }
+                potentialSuggestions.add(String(suggestedUserId));
+                if (!commonFollowers[suggestedUserId]) {
+                  commonFollowers[suggestedUserId] = friend;
+                }
+              }
+            }
+          }
+
+          // Get mutual following suggestions
+          if (potentialSuggestions.size > 0) {
+            const mutualQuery = { 
+              ...query,
+              _id: { 
+                ...query._id,
+                $in: Array.from(potentialSuggestions)
+              }
+            };
+
+            const mutualUsers = await User.find(mutualQuery)
+              .select("_id username verified profile country countryFlag followers createdAt")
+              .sort({ followers: -1, createdAt: -1 })
+              .limit(limitNum);
+
+            users = mutualUsers.map(user => {
+              const userObj = user.toObject();
+              if (!userObj.profile) userObj.profile = { profileImage: "" };
+              if (!userObj.profile.profileImage) userObj.profile.profileImage = "";
+              
+              return {
+                ...userObj,
+                reason: 'mutual_following',
+                commonFollower: commonFollowers[user._id] ? {
+                  _id: commonFollowers[user._id]._id,
+                  username: commonFollowers[user._id].username,
+                  profile: commonFollowers[user._id].profile,
+                  verified: commonFollowers[user._id].verified
+                } : null
+              };
+            });
+          }
+        }
+
+        // If we need more users, add same country users
+        if (users.length < limitNum && currentUser.country) {
+          const remainingLimit = limitNum - users.length;
+          const existingIds = users.map(u => u._id);
+          
+          const countryQuery = {
+            ...query,
+            country: currentUser.country,
+            _id: { 
+              ...query._id,
+              $nin: [...currentUserFollowing, ...existingIds]
+            }
+          };
+
+          const countryUsers = await User.find(countryQuery)
+            .select("_id username verified profile country countryFlag followers createdAt")
+            .sort({ followers: -1, createdAt: -1 })
+            .limit(remainingLimit);
+
+          const countryUsersFormatted = countryUsers.map(user => {
+            const userObj = user.toObject();
+            if (!userObj.profile) userObj.profile = { profileImage: "" };
+            if (!userObj.profile.profileImage) userObj.profile.profileImage = "";
+            
+            return {
+              ...userObj,
+              reason: 'same_country',
+              commonFollower: null
+            };
+          });
+
+          users = [...users, ...countryUsersFormatted];
+        }
+
+        // If still need more users, add popular users
+        if (users.length < limitNum) {
+          const remainingLimit = limitNum - users.length;
+          const existingIds = users.map(u => u._id);
+          
+          const popularQuery = {
+            ...query,
+            _id: { 
+              ...query._id,
+              $nin: [...currentUserFollowing, ...existingIds]
+            }
+          };
+
+          const popularUsers = await User.find(popularQuery)
+            .select("_id username verified profile country countryFlag followers createdAt")
+            .sort({ followers: -1, createdAt: -1 })
+            .skip(skip)
+            .limit(remainingLimit);
+
+          const popularUsersFormatted = popularUsers.map(user => {
+            const userObj = user.toObject();
+            if (!userObj.profile) userObj.profile = { profileImage: "" };
+            if (!userObj.profile.profileImage) userObj.profile.profileImage = "";
+            
+            return {
+              ...userObj,
+              reason: users.length > 0 ? 'popular' : 'random',
+              commonFollower: null
+            };
+          });
+
+          users = [...users, ...popularUsersFormatted];
+        }
+
+        // Get total for pagination
+        total = await User.countDocuments({
+          ...query,
+          _id: { $ne: userId, $nin: currentUserFollowing }
+        });
+        break;
+
+      case 'most_followers':
+        query._id = { $ne: userId, $nin: currentUserFollowing };
+        sortOptions = { followers: -1, createdAt: -1 };
+        break;
+
+      case 'same_region':
+        if (currentUser.country) {
+          query.country = currentUser.country;
+          query._id = { $ne: userId, $nin: currentUserFollowing };
+        }
+        sortOptions = { followers: -1, createdAt: -1 };
+        break;
+
+      case 'recent':
+        query._id = { $ne: userId, $nin: currentUserFollowing };
+        sortOptions = { createdAt: -1 };
+        break;
+
+      default:
+        query._id = { $ne: userId, $nin: currentUserFollowing };
+        sortOptions = { createdAt: -1 };
+    }
+
+    // For non-recommended filters, use standard query
+    if (filter !== 'recommended') {
+      const foundUsers = await User.find(query)
+        .select("_id username verified profile country countryFlag followers createdAt")
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(limitNum);
+
+      users = foundUsers.map(user => {
+        const userObj = user.toObject();
+        if (!userObj.profile) userObj.profile = { profileImage: "" };
+        if (!userObj.profile.profileImage) userObj.profile.profileImage = "";
+        
+        return {
+          ...userObj,
+          reason: filter === 'most_followers' ? 'most_followers' : 
+                 filter === 'same_region' ? 'same_country' : 'recent',
+          commonFollower: null
+        };
+      });
+
+      total = await User.countDocuments(query);
+    }
+
+    const hasMore = (pageNum * limitNum) < total;
+
+    res.json({
+      users,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      hasMore,
+      filter
+    });
+
+  } catch (error) {
+    console.error("Error browsing users:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // Follow a user
 router.post("/follow/:id", requireAuth, async (req, res) => {
   const userId = req.user.id;
