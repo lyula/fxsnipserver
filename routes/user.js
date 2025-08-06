@@ -159,8 +159,9 @@ router.get("/browse", requireAuth, async (req, res) => {
         { username: { $regex: search.trim(), $options: "i" } }
       ];
       // When searching, don't exclude followed users - we want to show them too
-    } else {
-      // Only exclude followed users when not searching
+    } else if (filter !== 'most_followers') {
+      // Only exclude followed users when not searching and not viewing popular users
+      // For popular users filter, we want to show all popular users regardless of follow status
       query._id = { $ne: userId, $nin: currentUserFollowing };
     }
 
