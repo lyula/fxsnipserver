@@ -19,7 +19,7 @@ const {
   getPostLikes,
   incrementShareCount // Import incrementShareCount
 } = require("../controllers/postController");
-const auth = require("../middleware/auth");
+const { requireAuth: auth } = require("../middleware/auth");
 const Post = require("../models/Post");
 const User = require("../models/User");
 

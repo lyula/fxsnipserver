@@ -1,7 +1,7 @@
 const BadgePayment = require('../models/BadgePayment');
 const User = require('../models/User');
 const axios = require('axios');
-const requireAuth = require("../middleware/auth");
+const { requireAuth } = require("../middleware/auth");
 const Notification = require("../models/Notification");
 
 // Create a badge payment

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { createBadgePayment, initiateSTKPush, payheroCallback, getLatestBadgePayment, getAllBadgePayments, getAllBadgePaymentsAdmin } = require('../controllers/badgePaymentController');
-const requireAuth = require("../middleware/auth"); // Add auth middleware
+const { requireAuth } = require("../middleware/auth"); // Add auth middleware
 
 // Create a badge payment
 router.post('/', requireAuth, createBadgePayment);
