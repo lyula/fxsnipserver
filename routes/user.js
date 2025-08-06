@@ -435,8 +435,13 @@ router.get("/suggestions/:userId", requireAuth, async (req, res) => {
         }).select("_id username verified profile country countryFlag").limit(6);
 
         for (const user of suggestedUsers) {
+          const userObj = user.toObject();
+          // Ensure profile structure is consistent
+          if (!userObj.profile) userObj.profile = { profileImage: "" };
+          if (!userObj.profile.profileImage) userObj.profile.profileImage = "";
+          
           suggestions.push({
-            ...user.toObject(),
+            ...userObj,
             commonFollower: commonFollowers[user._id] ? {
               _id: commonFollowers[user._id]._id,
               username: commonFollowers[user._id].username
@@ -459,8 +464,13 @@ router.get("/suggestions/:userId", requireAuth, async (req, res) => {
         .limit(maxSuggestions - suggestions.length);
 
       for (const user of countryUsers) {
+        const userObj = user.toObject();
+        // Ensure profile structure is consistent
+        if (!userObj.profile) userObj.profile = { profileImage: "" };
+        if (!userObj.profile.profileImage) userObj.profile.profileImage = "";
+        
         suggestions.push({
-          ...user.toObject(),
+          ...userObj,
           commonFollower: null,
           reason: 'same_country'
         });
@@ -479,8 +489,13 @@ router.get("/suggestions/:userId", requireAuth, async (req, res) => {
         .sort({ createdAt: -1 }); // Get recent users
 
       for (const user of randomUsers) {
+        const userObj = user.toObject();
+        // Ensure profile structure is consistent
+        if (!userObj.profile) userObj.profile = { profileImage: "" };
+        if (!userObj.profile.profileImage) userObj.profile.profileImage = "";
+        
         suggestions.push({
-          ...user.toObject(),
+          ...userObj,
           commonFollower: null,
           reason: 'random'
         });
