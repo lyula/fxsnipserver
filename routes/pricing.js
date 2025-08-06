@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getPricing, updatePricing } = require('../controllers/pricingController');
-const requireAuth = require('../middleware/auth');
+const { requireAuth } = require('../middleware/auth');
 
 // Public: get pricing
 router.get('/', getPricing);

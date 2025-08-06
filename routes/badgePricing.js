@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getBadgePricing, updateBadgePricing } = require('../controllers/badgePricingController');
-const requireAuth = require('../middleware/auth');
+const { requireAuth } = require('../middleware/auth');
 
 // Public: get badge pricing
 router.get('/', getBadgePricing);

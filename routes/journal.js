@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const journalController = require('../controllers/journalController');
-const auth = require('../middleware/auth');
+const { requireAuth: auth } = require('../middleware/auth');
 
 
 router.post('/', auth, journalController.createEntry);

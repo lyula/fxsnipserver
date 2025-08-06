@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
+const { requireAuth: auth } = require('../middleware/auth');
 const journalPaymentController = require('../controllers/journalPaymentController');
 
 // Create payment and initiate STK push
