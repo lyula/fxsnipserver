@@ -12,6 +12,9 @@ const journalPricingRoutes = require('./routes/journalPricing');
 const errorHandler = require("./middleware/errorHandler");
 const journalRoutes = require("./routes/journal");
 const journalPaymentRoutes = require("./routes/journalPayment");
+const adRoutes = require("./routes/ads");
+const adminAdRoutes = require("./routes/adminAds");
+const paymentRoutes = require("./routes/payments");
 
 require('dotenv').config();
 const allowedOrigins = [
@@ -35,6 +38,9 @@ app.use("/api/badge-pricing", badgePricingRoutes);
 app.use("/api/journal-pricing", journalPricingRoutes);
 app.use("/api/journal", journalRoutes);
 app.use("/api/journal-payments", journalPaymentRoutes);
+app.use("/api/ads", adRoutes);
+app.use("/api/admin/ads", adminAdRoutes);
+app.use("/api/payments", paymentRoutes);
 app.use(errorHandler);
 app.all('/debug-headers', (req, res) => {
   res.json({ headers: req.headers });
@@ -45,6 +51,12 @@ const server = http.createServer(app);
 const setupSocket = require("./sockets");
 const io = setupSocket(server);
 app.set('socketio', io); // Make socket.io instance available to controllers
+
+// Initialize ad management services
+const AdService = require('./services/adService');
+if (process.env.NODE_ENV !== 'test') {
+  AdService.initializeScheduledTasks();
+}
 // --- END SOCKET.IO SETUP ---
 
 module.exports = { app, server };
