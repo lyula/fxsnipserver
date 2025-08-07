@@ -659,7 +659,7 @@ const getActiveAds = async (req, res) => {
       'schedule.endDate': { $gte: currentDate }
     })
     .populate('userId', 'username verified profile.profileImage profile.verified countryFlag')
-    .select('title description linkUrl buttonText image video category targetingType schedule createdAt userId')
+    .select('title description linkUrl buttonText image video category targetingType schedule createdAt userId contactMethod whatsappNumber whatsappCountryCode')
     .sort({ createdAt: -1 })
     .limit(20); // Limit to 20 ads for performance
 
