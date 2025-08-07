@@ -13,6 +13,7 @@ const errorHandler = require("./middleware/errorHandler");
 const journalRoutes = require("./routes/journal");
 const journalPaymentRoutes = require("./routes/journalPayment");
 const adRoutes = require("./routes/ads");
+const adInteractionRoutes = require("./routes/adInteraction");
 const adminAdRoutes = require("./routes/adminAds");
 const paymentRoutes = require("./routes/payments");
 
@@ -68,6 +69,7 @@ app.use("/api/journal-pricing", journalPricingRoutes);
 app.use("/api/journal", journalRoutes);
 app.use("/api/journal-payments", journalPaymentRoutes);
 app.use("/api/ads", adRoutes);
+app.use("/api/ad-interactions", adInteractionRoutes);
 app.use("/api/admin/ads", adminAdRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use(errorHandler);

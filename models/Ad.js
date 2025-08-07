@@ -376,29 +376,24 @@ adSchema.pre('save', function(next) {
 
 // Instance methods
 adSchema.methods.calculateTotalPrice = function(basePricing, exchangeRates) {
-  let basePrice = 0;
-  
-  if (this.targetingType === 'global') {
-    basePrice = basePricing.global;
-  } else {
-    basePrice = this.targetCountries.reduce((sum, country) => {
-      return sum + basePricing[country.tier];
-    }, 0);
-  }
-  
-  const totalPriceUSD = basePrice * this.duration * this.targetUserbase.multiplier;
-  
+  // CPM-based pricing: CPM = cost per 1000 views
+  // Estimate total views as audience size * duration (days)
+  const cpm = typeof basePricing === 'number' ? basePricing : 10.00;
+  const audienceSize = this.targetUserbase && this.targetUserbase.size ? Number(this.targetUserbase.size) : 1000;
+  const expectedViews = audienceSize * this.duration;
+  const totalPriceUSD = Math.ceil(expectedViews / 1000) * cpm;
+
   this.pricing = {
-    basePriceUSD: basePrice,
+    basePriceUSD: cpm,
     totalPriceUSD: totalPriceUSD,
     priceBreakdown: {
-      basePrice: basePrice,
-      durationMultiplier: this.duration,
-      audienceMultiplier: this.targetUserbase.multiplier,
-      countryCount: this.targetingType === 'global' ? 1 : this.targetCountries.length
+      cpm,
+      expectedViews,
+      audienceSize,
+      duration: this.duration
     }
   };
-  
+
   return totalPriceUSD;
 };
 

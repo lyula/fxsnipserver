@@ -10,13 +10,8 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Base pricing in USD (should match frontend)
-const BASE_TIER_PRICING_USD = {
-  1: 5.00, // USD per day for tier 1 countries
-  2: 2.50, // USD per day for tier 2 countries  
-  3: 1.00, // USD per day for tier 3 countries
-  global: 3.50 // USD per day for global targeting
-};
+// Finance CPM (cost per 1000 views) in USD (should match frontend)
+const FINANCE_CPM_USD = 10.00; // Example: $10 per 1000 views
 
 // Target userbase options (should match frontend)
 const TARGET_USERBASE_OPTIONS = {
@@ -181,7 +176,7 @@ const createAd = async (req, res) => {
     });
 
     // Calculate pricing
-    const totalPriceUSD = newAd.calculateTotalPrice(BASE_TIER_PRICING_USD, exchangeRates);
+    const totalPriceUSD = newAd.calculateTotalPrice(FINANCE_CPM_USD, exchangeRates);
     
     // Convert to user's currency
     newAd.convertToUserCurrency(exchangeRates, userCurrency.code, userCurrency.symbol);
@@ -365,6 +360,7 @@ const updateAd = async (req, res) => {
       }
       
       ad.calculateTotalPrice(BASE_TIER_PRICING_USD, exchangeRates);
+      ad.calculateTotalPrice(FINANCE_CPM_USD, exchangeRates);
       ad.convertToUserCurrency(exchangeRates, userCurrency.code, userCurrency.symbol);
     } else {
       Object.assign(ad, updates);

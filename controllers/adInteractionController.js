@@ -4,20 +4,30 @@ const Ad = require('../models/Ad');
 // Like or unlike an ad
 exports.likeAd = async (req, res) => {
   const { adId } = req.params;
-  const userId = req.user._id;
+  const userId = req.user.id; // Use decoded JWT id
   try {
     let interaction = await AdInteraction.findOne({ ad: adId });
     if (!interaction) {
       interaction = new AdInteraction({ ad: adId });
     }
-    const liked = interaction.likes.includes(userId);
-    if (liked) {
-      interaction.likes.pull(userId);
+
+    const alreadyLiked = interaction.likes.some((id) => String(id) === String(userId));
+    if (alreadyLiked) {
+      interaction.likes = interaction.likes.filter((id) => String(id) !== String(userId));
     } else {
       interaction.likes.push(userId);
     }
+
     await interaction.save();
-    res.json({ liked: !liked, likesCount: interaction.likes.length });
+
+    // Re-fetch and fully populate the AdInteraction object
+    const populatedInteraction = await AdInteraction.findOne({ ad: adId })
+      .populate('likes', 'username profile')
+      .populate('comments.user', 'username profile')
+      .populate('comments.replies.user', 'username profile')
+      .populate('shares', 'username profile');
+
+    res.status(200).json(populatedInteraction);
   } catch (err) {
     res.status(500).json({ error: 'Failed to like/unlike ad.' });
   }
@@ -26,7 +36,7 @@ exports.likeAd = async (req, res) => {
 // Add a comment to an ad
 exports.commentAd = async (req, res) => {
   const { adId } = req.params;
-  const userId = req.user._id;
+  const userId = req.user.id; // Use decoded JWT id
   const { text } = req.body;
   try {
     let interaction = await AdInteraction.findOne({ ad: adId });
@@ -35,7 +45,10 @@ exports.commentAd = async (req, res) => {
     }
     interaction.comments.push({ user: userId, text });
     await interaction.save();
-    res.json({ comments: interaction.comments });
+    const populated = await AdInteraction.findOne({ ad: adId })
+      .populate('comments.user', 'username profile')
+      .populate('comments.replies.user', 'username profile');
+    res.json({ comments: populated?.comments || [] });
   } catch (err) {
     res.status(500).json({ error: 'Failed to comment on ad.' });
   }
@@ -44,7 +57,7 @@ exports.commentAd = async (req, res) => {
 // Reply to a comment
 exports.replyComment = async (req, res) => {
   const { adId, commentId } = req.params;
-  const userId = req.user._id;
+  const userId = req.user.id; // Use decoded JWT id
   const { text } = req.body;
   try {
     let interaction = await AdInteraction.findOne({ ad: adId });
@@ -53,7 +66,11 @@ exports.replyComment = async (req, res) => {
     if (!comment) return res.status(404).json({ error: 'Comment not found.' });
     comment.replies.push({ user: userId, text });
     await interaction.save();
-    res.json({ replies: comment.replies });
+    const populated = await AdInteraction.findOne({ ad: adId })
+      .populate('comments.user', 'username profile')
+      .populate('comments.replies.user', 'username profile');
+    const populatedComment = populated?.comments.id(commentId);
+    res.json({ replies: populatedComment?.replies || [] });
   } catch (err) {
     res.status(500).json({ error: 'Failed to reply to comment.' });
   }
@@ -62,13 +79,14 @@ exports.replyComment = async (req, res) => {
 // Share an ad
 exports.shareAd = async (req, res) => {
   const { adId } = req.params;
-  const userId = req.user._id;
+  const userId = req.user.id; // Use decoded JWT id
   try {
     let interaction = await AdInteraction.findOne({ ad: adId });
     if (!interaction) {
       interaction = new AdInteraction({ ad: adId });
     }
-    if (!interaction.shares.includes(userId)) {
+    const hasShared = interaction.shares.some((id) => String(id) === String(userId));
+    if (!hasShared) {
       interaction.shares.push(userId);
       await interaction.save();
     }
@@ -81,13 +99,14 @@ exports.shareAd = async (req, res) => {
 // Track a view
 exports.viewAd = async (req, res) => {
   const { adId } = req.params;
-  const userId = req.user._id;
+  const userId = req.user.id; // Use decoded JWT id
   try {
     let interaction = await AdInteraction.findOne({ ad: adId });
     if (!interaction) {
       interaction = new AdInteraction({ ad: adId });
     }
-    if (!interaction.views.includes(userId)) {
+    const hasViewed = interaction.views.some((id) => String(id) === String(userId));
+    if (!hasViewed) {
       interaction.views.push(userId);
       interaction.viewCount += 1;
       await interaction.save();
