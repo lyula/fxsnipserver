@@ -89,6 +89,7 @@ const adValidationRules = [
     .withMessage('Video public ID must be a string or array of strings'),
   
   body('linkUrl')
+    .if(body('contactMethod').equals('link'))
     .isURL()
     .withMessage('Link URL must be a valid URL'),
   

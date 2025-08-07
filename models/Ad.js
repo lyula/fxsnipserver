@@ -99,15 +99,50 @@ const adSchema = new mongoose.Schema({
     }
   },
   
+  // Contact Method: 'link', 'whatsapp', 'direct-message'
+  contactMethod: {
+    type: String,
+    enum: ['link', 'whatsapp', 'direct-message'],
+    required: [true, 'Contact method is required'],
+    default: 'link'
+  },
+
   // Destination URL for the ad (where users go when they click)
   linkUrl: {
     type: String,
-    required: [true, 'Link URL is required'],
+    required: function() { return this.contactMethod === 'link'; },
     validate: {
       validator: function(v) {
+        if (this.contactMethod !== 'link') return true;
         return /^https?:\/\//.test(v);
       },
       message: 'Link URL must be a valid URL starting with http:// or https://'
+    }
+  },
+
+  // WhatsApp Contact (E.164 format, e.g. +1234567890)
+  whatsappNumber: {
+    type: String,
+    required: function() { return this.contactMethod === 'whatsapp'; },
+    validate: {
+      validator: function(v) {
+        if (this.contactMethod !== 'whatsapp') return true;
+        // E.164 format: +[country code][number], 8-15 digits
+        return /^\+[1-9]\d{7,14}$/.test(v);
+      },
+      message: 'WhatsApp number must be in international E.164 format (e.g. +1234567890)'
+    }
+  },
+  // WhatsApp Country Code (for UI pre-population, e.g. +1, +44)
+  whatsappCountryCode: {
+    type: String,
+    required: function() { return this.contactMethod === 'whatsapp'; },
+    validate: {
+      validator: function(v) {
+        if (this.contactMethod !== 'whatsapp') return true;
+        return /^\+[1-9]\d{0,3}$/.test(v); // e.g. +1, +44, +254
+      },
+      message: 'Country code must be in format +[country code]'
     }
   },
   

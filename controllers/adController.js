@@ -100,12 +100,16 @@ const createAd = async (req, res) => {
       video,
       videoPublicId,
       linkUrl,
+      contactMethod = 'link',
+      whatsappNumber,
+      whatsappCountryCode,
       targetingType,
       targetCountries,
       duration,
       targetUserbase,
       userCountry = 'United States'
     } = req.body;
+
 
     // Validate that at least one media type is provided
     if (!image && !video) {
@@ -132,6 +136,45 @@ const createAd = async (req, res) => {
       });
     }
 
+    // WhatsApp number/country code validation and normalization
+    let finalWhatsappNumber = whatsappNumber;
+    let finalWhatsappCountryCode = whatsappCountryCode;
+    if (contactMethod === 'whatsapp') {
+      // If country code not provided, try to infer from userCountry
+      if (!finalWhatsappCountryCode && userCountry) {
+        // Example mapping, expand as needed
+        const countryCodeMap = {
+          'United States': '+1',
+          'United Kingdom': '+44',
+          'Kenya': '+254',
+          'Nigeria': '+234',
+          'India': '+91',
+          'South Africa': '+27',
+          'Canada': '+1',
+          'Germany': '+49',
+          'France': '+33',
+          'Japan': '+81',
+          'Brazil': '+55',
+          'China': '+86',
+          // ...add more as needed
+        };
+        finalWhatsappCountryCode = countryCodeMap[userCountry] || '+1';
+      }
+      // If number does not start with +, prepend country code
+      if (finalWhatsappNumber && !/^\+/.test(finalWhatsappNumber)) {
+        // Remove leading zeros and spaces/dashes
+        let clean = String(finalWhatsappNumber).replace(/^[0]+/, '').replace(/[^\d]/g, '');
+        finalWhatsappNumber = `${finalWhatsappCountryCode}${clean}`;
+      }
+      // Ensure E.164 format
+      if (!/^\+[1-9]\d{7,14}$/.test(finalWhatsappNumber)) {
+        return res.status(400).json({
+          success: false,
+          message: 'WhatsApp number must be in international E.164 format (e.g. +1234567890)'
+        });
+      }
+    }
+
     // Fetch current exchange rates
     const exchangeRates = await fetchExchangeRates();
     const userCurrency = getUserCurrency(userCountry);
@@ -146,6 +189,9 @@ const createAd = async (req, res) => {
       video,
       videoPublicId,
       linkUrl,
+      contactMethod,
+      whatsappNumber: finalWhatsappNumber,
+      whatsappCountryCode: finalWhatsappCountryCode,
       targetingType,
       targetCountries: targetingType === 'specific' ? targetCountries : [],
       duration,
