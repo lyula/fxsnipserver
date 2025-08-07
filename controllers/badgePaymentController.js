@@ -39,6 +39,19 @@ exports.createBadgePayment = async (req, res) => {
         // If payment is for verified badge and successful, update user
         if (badgePayment.type === 'verified_badge' && badgePayment.status === 'completed') {
             await User.findByIdAndUpdate(badgePayment.user, { verified: true });
+            // Update all previous completed badge payments to have the latest periodStart and periodEnd
+            await BadgePayment.updateMany(
+                {
+                    user: badgePayment.user,
+                    type: 'verified_badge',
+                    status: 'completed',
+                    _id: { $ne: badgePayment._id }
+                },
+                {
+                    periodStart: badgePayment.periodStart,
+                    periodEnd: badgePayment.periodEnd
+                }
+            );
         }
         res.status(201).json(badgePayment);
     } catch (err) {
@@ -55,7 +68,16 @@ exports.expireOldBadgePayments = async () => {
     periodEnd: { $lt: new Date() }
   });
   for (const badgePayment of expiredBadgePayments) {
-    await User.findByIdAndUpdate(badgePayment.user, { verified: false });
+    // Check if user has any other active/completed badge payment with periodEnd in the future
+    const activeCount = await BadgePayment.countDocuments({
+      user: badgePayment.user,
+      status: 'completed',
+      type: 'verified_badge',
+      periodEnd: { $gt: new Date() }
+    });
+    if (activeCount === 0) {
+      await User.findByIdAndUpdate(badgePayment.user, { verified: false });
+    }
     // Optionally, mark payment as expired
     // await BadgePayment.findByIdAndUpdate(badgePayment._id, { status: 'expired' });
   }
@@ -213,6 +235,19 @@ exports.payheroCallback = async (req, res) => {
         }
         if (payment && data.Status === 'Success') {
             await User.findByIdAndUpdate(payment.user, { verified: true });
+            // Update all previous completed badge payments to have the latest periodStart and periodEnd
+            await BadgePayment.updateMany(
+                {
+                    user: payment.user,
+                    type: 'verified_badge',
+                    status: 'completed',
+                    _id: { $ne: payment._id }
+                },
+                {
+                    periodStart: payment.periodStart,
+                    periodEnd: payment.periodEnd
+                }
+            );
         }
         res.json({ success: true });
     } catch (err) {
