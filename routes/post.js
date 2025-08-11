@@ -128,6 +128,10 @@ router.get("/following", auth, getFollowingPosts);
 router.put("/:postId", auth, editPost);
 router.delete("/:postId", auth, deletePost);
 
+
+// Get all comments for a post
+router.get("/:postId/comments", auth, require("../controllers/postController").getPostComments);
+
 // Edit and delete comments
 router.put("/:postId/comments/:commentId", auth, editComment);
 router.delete("/:postId/comments/:commentId", auth, deleteComment);

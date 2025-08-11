@@ -564,7 +564,7 @@ router.get("/followers/:username", async (req, res) => {
 
   // Find all users whose followingHashed contains this user's hashed ID
   const followers = await User.find({ followingHashed: hashedId })
-    .select("username country countryFlag _id verified"); // <-- Add verified here
+    .select("username country countryFlag _id verified profile.profileImage");
   res.json({ followers });
 });
 
@@ -581,7 +581,7 @@ router.get("/followers/:username/search", requireAuth, async (req, res) => {
   const followers = await User.find({
     followingHashed: hashedId,
     username: { $regex: q, $options: "i" }
-  }).select("username country countryFlag _id verified"); // <-- Add verified here
+  }).select("username country countryFlag _id verified profile.profileImage");
   res.json({ followers });
 });
 
@@ -595,7 +595,7 @@ router.get("/following/:username", requireAuth, async (req, res) => {
 
   const following = await User.find({
     _id: { $in: followingRaw }
-  }).select("username country countryFlag _id verified"); // <-- Add verified here
+  }).select("username country countryFlag _id verified profile.profileImage");
   res.json({ following });
 });
 

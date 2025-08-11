@@ -1,3 +1,20 @@
+// Get all comments for a post
+exports.getPostComments = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const post = await require("../models/Post").findById(postId)
+      .populate([
+        { path: "comments.author", select: "username verified profile profileImage" },
+        { path: "comments.replies.author", select: "username verified profile profileImage" }
+      ])
+      .select("comments");
+    if (!post) return res.status(404).json({ error: "Post not found" });
+    res.status(200).json({ comments: post.comments });
+  } catch (error) {
+    console.error("Error fetching post comments:", error);
+    res.status(500).json({ error: "Failed to fetch post comments" });
+  }
+};
 const Ad = require('../models/Ad');
 const Post = require("../models/Post");
 const User = require("../models/User");

@@ -21,7 +21,11 @@ require('dotenv').config();
 const allowedOrigins = [
   process.env.CLIENT_URL,
   'http://localhost:5173',
-  'http://127.0.0.1:5173'
+  'http://127.0.0.1:5173',
+  'http://localhost:8081', // React Native Metro
+  'http://127.0.0.1:8081',
+  'exp://127.0.0.1:19000', // Expo Go (adjust as needed)
+  'http://localhost:19006', // Expo web (if used)
 ].filter(Boolean);
 
 console.log('CORS allowed origins:', allowedOrigins);
