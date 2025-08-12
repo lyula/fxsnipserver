@@ -539,7 +539,7 @@ router.post("/unfollow/:id", requireAuth, async (req, res) => {
 router.get("/public/:username", async (req, res) => {
   const user = await User.findOne({ username: req.params.username })
     .select("_id username country countryFlag createdAt followers following verified profile followersHashed");
-  if (!user) return res.status(404).json({ message: "User not found" });
+  const followingRaw = user.followingRaw || [];
 
   res.json({
     _id: user._id,
@@ -678,10 +678,26 @@ router.get("/notifications", requireAuth, async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate("from", "username verified")
+      .populate({
+        path: "from",
+        select: "username verified profile.profileImage",
+      })
       .lean();
-    
-    res.json(notifications);
+
+    // For each notification, flatten the profileImage to top-level for easier frontend access
+    const notificationsWithProfileImage = notifications.map(n => {
+      let profileImage = '';
+      if (n.from && n.from.profile && n.from.profile.profileImage) {
+        profileImage = n.from.profile.profileImage;
+      }
+      return {
+        ...n,
+        profileImage,
+        username: n.from?.username,
+        verified: n.from?.verified,
+      };
+    });
+    res.json(notificationsWithProfileImage);
   } catch (err) {
     console.error("Error fetching notifications:", err);
     res.status(500).json({ error: "Server error" });
