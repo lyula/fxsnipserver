@@ -764,7 +764,7 @@ exports.likePost = async (req, res) => {
           from: req.user.id,
           type: "like_post",
           post: post._id,
-          message: `${req.user.username} liked your post.`,
+          message: `liked your post.`,
         });
       }
     } else {
@@ -863,7 +863,7 @@ exports.likeComment = async (req, res) => {
           type: "like_comment",
           post: post._id,
           comment: comment._id,
-          message: `${req.user.username} liked your comment on a post.`,
+          message: `liked your comment on a post.`,
         });
       }
     } else {
@@ -916,7 +916,7 @@ exports.likeReply = async (req, res) => {
           post: post._id,
           comment: comment._id,
           reply: reply._id,
-          message: `${req.user.username} liked your reply on a post.`,
+          message: `liked your reply on a post.`,
         });
       }
     } else {
