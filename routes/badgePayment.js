@@ -1,10 +1,8 @@
-// Get a badge payment by ID (for notifications and details)
-const badgePaymentController = require('../controllers/badgePaymentController');
-router.get('/:id', requireAuth, badgePaymentController.getBadgePaymentById);
 const express = require('express');
 const router = express.Router();
-const { createBadgePayment, initiateSTKPush, payheroCallback, getLatestBadgePayment, getAllBadgePayments, getAllBadgePaymentsAdmin } = require('../controllers/badgePaymentController');
 const { requireAuth } = require("../middleware/auth"); // Add auth middleware
+const badgePaymentController = require('../controllers/badgePaymentController');
+const { createBadgePayment, initiateSTKPush, payheroCallback, getLatestBadgePayment, getAllBadgePayments, getAllBadgePaymentsAdmin } = badgePaymentController;
 
 // Create a badge payment
 router.post('/', requireAuth, createBadgePayment);
@@ -23,5 +21,8 @@ router.get('/my', requireAuth, getAllBadgePayments);
 
 // Get all badge payments (admin)
 router.get('/all', getAllBadgePaymentsAdmin); // Add admin auth in production
+
+// Get a badge payment by ID (for notifications and details)
+router.get('/:id', requireAuth, badgePaymentController.getBadgePaymentById);
 
 module.exports = router;
