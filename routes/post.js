@@ -47,7 +47,13 @@ router.post("/:postId/comments", auth, addComment);
 router.post("/:postId/comments/:commentId/replies", auth, addReply);
 
 // Increment post views
-router.post('/:id/view', incrementPostViews);
+router.post('/:id/view', (req, res, next) => {
+  console.warn('[POST /posts/:id/view] Incoming view request:', {
+    postId: req.params.id,
+    userId: req.user && req.user.id
+  });
+  next();
+}, incrementPostViews);
 
 // Track post view
 router.post("/:id/view", async (req, res) => {

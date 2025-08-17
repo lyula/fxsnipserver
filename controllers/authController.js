@@ -4,7 +4,7 @@ const { generateToken } = require("../utils/jwt");
 
 exports.register = async (req, res, next) => {
   try {
-    const { username, email, password, country, countryCode, countryFlag } = req.body;
+  const { username, email, password, country, countryCode, countryFlag, gender, dateOfBirth } = req.body;
 
     // Username validation (Instagram-style)
     const usernameRegex = /^(?!.*[_.]{2})[a-zA-Z0-9](?!.*[_.]{2})[a-zA-Z0-9._]{1,28}[a-zA-Z0-9]$/;
@@ -21,6 +21,14 @@ exports.register = async (req, res, next) => {
           "Invalid username. Use 3-30 letters, numbers, underscores, or periods. Cannot be only numbers, start/end with period/underscore, or contain '@'."
       });
     }
+    // Gender validation
+    if (!gender || !["male", "female", "other"].includes(gender)) {
+      return res.status(400).json({ message: "Gender is required and must be one of: male, female, other." });
+    }
+    // Date of birth validation
+    if (!dateOfBirth || isNaN(Date.parse(dateOfBirth))) {
+      return res.status(400).json({ message: "Valid date of birth is required." });
+    }
 
     // Check for existing email
     const exists = await User.findOne({ email });
@@ -35,6 +43,8 @@ exports.register = async (req, res, next) => {
       username,
       email,
       password: hash,
+      gender,
+      dateOfBirth: new Date(dateOfBirth),
       country,
       countryCode,
       countryFlag,
