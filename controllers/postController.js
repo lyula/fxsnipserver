@@ -818,7 +818,7 @@ exports.addComment = async (req, res) => {
         type: "comment",
         post: post._id,
         comment: addedComment._id, // <-- Add this line
-        message: `${req.user.username} commented on your post.`,
+        message: `commented on your post.`,
       });
     }
 
