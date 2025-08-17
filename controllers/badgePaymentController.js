@@ -1,3 +1,15 @@
+// Get a badge payment by ID
+exports.getBadgePaymentById = async (req, res) => {
+  try {
+    const paymentId = req.params.id;
+    if (!paymentId) return res.status(400).json({ error: 'Payment ID is required' });
+    const payment = await BadgePayment.findById(paymentId);
+    if (!payment) return res.status(404).json({ error: 'Payment not found' });
+    res.json(payment);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
 const BadgePayment = require('../models/BadgePayment');
 const User = require('../models/User');
 const axios = require('axios');

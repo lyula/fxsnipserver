@@ -1,3 +1,15 @@
+// Get a journal payment by ID
+exports.getJournalPaymentById = async (req, res) => {
+  try {
+    const paymentId = req.params.id;
+    if (!paymentId) return res.status(400).json({ error: 'Payment ID is required' });
+    const payment = await JournalPayment.findById(paymentId);
+    if (!payment) return res.status(404).json({ error: 'Payment not found' });
+    res.json(payment);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
 // Get payment status by paymentId (for polling from frontend)
 exports.getJournalPaymentStatus = async (req, res) => {
   try {

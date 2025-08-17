@@ -1,3 +1,6 @@
+// Get a badge payment by ID (for notifications and details)
+const badgePaymentController = require('../controllers/badgePaymentController');
+router.get('/:id', requireAuth, badgePaymentController.getBadgePaymentById);
 const express = require('express');
 const router = express.Router();
 const { createBadgePayment, initiateSTKPush, payheroCallback, getLatestBadgePayment, getAllBadgePayments, getAllBadgePaymentsAdmin } = require('../controllers/badgePaymentController');

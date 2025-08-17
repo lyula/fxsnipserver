@@ -1,3 +1,5 @@
+// Get a journal payment by ID (for notifications and details)
+router.get('/:id', auth, journalPaymentController.getJournalPaymentById);
 const express = require('express');
 const router = express.Router();
 const { requireAuth: auth } = require('../middleware/auth');
