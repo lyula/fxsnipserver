@@ -3,8 +3,11 @@ const NotificationPreferences = require('../models/NotificationPreferences');
 // Get preferences for current user
 exports.getPreferences = async (req, res) => {
   try {
-    const prefs = await NotificationPreferences.findOne({ user: req.user._id });
-    if (!prefs) return res.json({ push: true, email: false, sms: false });
+    let prefs = await NotificationPreferences.findOne({ user: req.user._id });
+    if (!prefs) {
+      prefs = new NotificationPreferences({ user: req.user._id });
+      await prefs.save();
+    }
     res.json(prefs);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch preferences' });
