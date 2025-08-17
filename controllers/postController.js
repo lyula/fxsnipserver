@@ -992,39 +992,28 @@ exports.addReply = async (req, res) => {
 // Increment post views
 exports.incrementPostViews = async (req, res) => {
   try {
-    // Change from req.params.postId to req.params.id
-    const postId = req.params.id;
-    console.log('📊 [POST VIEWS] Incrementing views for post:', postId);
-    
-    const post = await Post.findByIdAndUpdate(
-      postId,
-      { $inc: { views: 1 } },
-      { new: true }
-    );
-
+    const userId = req.user.id;
+    const post = await Post.findById(req.params.id);
     if (!post) {
-      console.log('❌ [POST VIEWS] Post not found:', postId);
-      return res.status(404).json({ error: 'Post not found' });
+      return res.status(404).json({ error: "Post not found" });
     }
-
-    console.log('✅ [POST VIEWS] Views incremented to:', post.views, 'for post:', postId);
-
+    if (!post.viewers) post.viewers = [];
+    if (!post.viewers.some(id => String(id) === String(userId))) {
+      post.viewers.push(userId);
+      await post.save();
+    }
     // Emit real-time view update to all connected clients
     const io = req.app.get('socketio');
     if (io) {
-      console.log('🔌 [SOCKET] Emitting post-view-updated event:', { postId: post._id, views: post.views });
       io.emit('post-view-updated', {
         postId: post._id,
-        views: post.views
+        viewers: post.viewers
       });
-    } else {
-      console.log('❌ [SOCKET] Socket.io instance not found');
     }
-
-    res.json({ views: post.views });
+    res.json({ viewers: post.viewers });
   } catch (error) {
-    console.error('Error incrementing post views:', error);
-    res.status(500).json({ error: 'Server error' });
+    console.error("Error tracking view:", error);
+    res.status(500).json({ error: "Failed to track view" });
   }
 };
 

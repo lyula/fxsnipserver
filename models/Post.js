@@ -37,7 +37,7 @@ const PostSchema = new mongoose.Schema(
     author: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     comments: [CommentSchema],
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-    views: { type: Number, default: 0 },
+  viewers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     shareCount: { type: Number, default: 0 }, // Track number of times post is shared
     editedAt: { type: Date },
     isEdited: { type: Boolean, default: false },
