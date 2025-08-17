@@ -30,6 +30,11 @@ exports.updatePreferences = async (req, res) => {
     await prefs.save();
     res.json(prefs);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to update preferences' });
+    console.error('Error updating notification preferences:', err);
+    res.status(500).json({
+      error: 'Failed to update preferences',
+      details: err?.message || err,
+      stack: err?.stack || null
+    });
   }
 };
