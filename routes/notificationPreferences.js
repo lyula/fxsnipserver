@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const notificationPreferencesController = require('../controllers/notificationPreferencesController');
-const { authenticate } = require('../middleware/auth');
+const { requireAuth } = require('../middleware/auth');
 
 // Get current user's notification preferences
-router.get('/', authenticate, notificationPreferencesController.getPreferences);
+router.get('/', requireAuth, notificationPreferencesController.getPreferences);
 
 // Update current user's notification preferences
-router.put('/', authenticate, notificationPreferencesController.updatePreferences);
+router.put('/', requireAuth, notificationPreferencesController.updatePreferences);
 
 module.exports = router;
