@@ -945,30 +945,55 @@ exports.likeReply = async (req, res) => {
 exports.addReply = async (req, res) => {
   try {
     const { postId, commentId } = req.params;
-    const { content } = req.body;
+    const { content, replyToReplyId } = req.body;
     const post = await Post.findById(postId);
     if (!post) return res.status(404).json({ error: "Post not found" });
 
     const comment = post.comments.id(commentId);
     if (!comment) return res.status(404).json({ error: "Comment not found" });
 
-    const newReply = { content, author: req.user.id };
+    let replyToUserId = null;
+    if (replyToReplyId) {
+      const parentReply = comment.replies.id(replyToReplyId);
+      if (parentReply) {
+        replyToUserId = parentReply.author;
+      }
+    }
+
+    const newReply = {
+      content,
+      author: req.user.id,
+      replyTo: replyToUserId || null
+    };
     comment.replies.push(newReply);
     await post.save();
 
     // Get the newly added reply
     const addedReply = comment.replies[comment.replies.length - 1];
 
-    // Send notification to the comment author
-    if (comment.author.toString() !== req.user.id) {
+    // Send notification to the comment author (if replying to comment)
+    if (!replyToUserId && comment.author.toString() !== req.user.id) {
       await Notification.create({
         user: comment.author,
         from: req.user.id,
         type: "reply",
         post: post._id,
         comment: comment._id,
-        reply: addedReply._id, // <-- Add this line
+        reply: addedReply._id,
         message: `${req.user.username} replied to your comment on a post.`,
+      });
+    }
+
+    // Send notification to the reply author (if replying to a reply)
+    if (replyToUserId && replyToUserId.toString() !== req.user.id) {
+      await Notification.create({
+        user: replyToUserId,
+        from: req.user.id,
+        type: "reply_to_reply",
+        post: post._id,
+        comment: comment._id,
+        reply: addedReply._id,
+        message: `${req.user.username} replied to your reply on a post.`,
       });
     }
 

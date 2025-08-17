@@ -4,6 +4,7 @@ const ReplySchema = new mongoose.Schema(
   {
     content: String,
     author: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    replyTo: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }, // User being replied to (for replies to replies)
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date },
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
