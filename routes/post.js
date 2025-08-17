@@ -147,9 +147,9 @@ router.get("/:postId/likes", auth, getPostLikes);
 router.get("/:postId", async (req, res) => {
   try {
     const post = await Post.findById(req.params.postId)
-      .populate("author", "username verified")
-      .populate("comments.author", "username verified")
-      .populate("comments.replies.author", "username verified");
+      .populate("author", "username verified countryFlag profile profileImage")
+      .populate("comments.author", "username verified profile profileImage")
+      .populate("comments.replies.author", "username verified profile profileImage");
     if (!post) return res.status(404).json({ error: "Post not found" });
     res.status(200).json(post);
   } catch (error) {
