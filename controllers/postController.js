@@ -980,7 +980,7 @@ exports.addReply = async (req, res) => {
         post: post._id,
         comment: comment._id,
         reply: addedReply._id,
-        message: `${req.user.username} replied to your comment on a post.`,
+        message: `${req.user.username} replied to you`,
       });
     }
 
@@ -989,11 +989,11 @@ exports.addReply = async (req, res) => {
       await Notification.create({
         user: replyToUserId,
         from: req.user.id,
-        type: "reply_to_reply",
+        type: "reply",
         post: post._id,
         comment: comment._id,
         reply: addedReply._id,
-        message: `${req.user.username} replied to your reply on a post.`,
+        message: `${req.user.username} replied to you`,
       });
     }
 
