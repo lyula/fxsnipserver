@@ -980,7 +980,7 @@ exports.addReply = async (req, res) => {
         post: post._id,
         comment: comment._id,
         reply: addedReply._id,
-        message: `${req.user.username} replied to you`,
+        message: "replied to you",
       });
     }
 
@@ -993,7 +993,7 @@ exports.addReply = async (req, res) => {
         post: post._id,
         comment: comment._id,
         reply: addedReply._id,
-        message: `${req.user.username} replied to you`,
+        message: "replied to you",
       });
     }
 
@@ -1392,12 +1392,12 @@ async function createMentionNotifications(content, fromUserId, fromUsername, pos
           from: fromUserId,
           type: "mention",
           post: postId,
-          message: `${fromUsername} mentioned you in a ${replyId ? 'reply' : commentId ? 'comment' : 'post'}.`,
+          message: replyId ? "mentioned you in a reply" : commentId ? "mentioned you in a comment" : "mentioned you in a post",
         };
-        
+
         if (commentId) notificationData.comment = commentId;
         if (replyId) notificationData.reply = replyId;
-        
+
         await Notification.create(notificationData);
       }
     } catch (error) {
