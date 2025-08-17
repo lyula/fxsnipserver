@@ -65,6 +65,7 @@ app.set('trust proxy', 1);
 app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
+app.use("/api/user/notification-preferences", require("./routes/notificationPreferences"));
 app.use("/api/message", messageRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/badge-payments", badgePaymentRoutes);
