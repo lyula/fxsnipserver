@@ -8,7 +8,7 @@ exports.getPreferences = async (req, res) => {
       prefs = new NotificationPreferences({ user: req.user._id });
       await prefs.save();
     }
-    res.json(prefs);
+  res.json(prefs);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch preferences' });
   }
@@ -17,14 +17,17 @@ exports.getPreferences = async (req, res) => {
 // Update preferences for current user
 exports.updatePreferences = async (req, res) => {
   try {
-    const { push, email, sms } = req.body;
+  const { push, email, sms, pushTypes } = req.body;
     let prefs = await NotificationPreferences.findOne({ user: req.user._id });
     if (!prefs) {
-      prefs = new NotificationPreferences({ user: req.user._id, push, email, sms });
+      prefs = new NotificationPreferences({ user: req.user._id, push, email, sms, pushTypes });
     } else {
-      prefs.push = push;
-      prefs.email = email;
-      prefs.sms = sms;
+      if (typeof push !== 'undefined') prefs.push = push;
+      if (typeof email !== 'undefined') prefs.email = email;
+      if (typeof sms !== 'undefined') prefs.sms = sms;
+      if (pushTypes && typeof pushTypes === 'object') {
+        prefs.pushTypes = { ...prefs.pushTypes, ...pushTypes };
+      }
       prefs.updatedAt = Date.now();
     }
     await prefs.save();

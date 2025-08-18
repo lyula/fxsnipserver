@@ -883,4 +883,20 @@ router.get("/suggestions/:userId", requireAuth, async (req, res) => {
   }
 });
 
+// Save Expo push token for current user
+router.put('/expo-push-token', requireAuth, async (req, res) => {
+  const { expoPushToken } = req.body;
+  if (!expoPushToken) return res.status(400).json({ error: 'No Expo push token provided' });
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    user.expoPushToken = expoPushToken;
+    await user.save();
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error saving Expo push token:', err);
+    res.status(500).json({ error: 'Failed to save Expo push token', details: err?.message || err });
+  }
+});
+
 module.exports = router;

@@ -19,6 +19,7 @@ const Ad = require('../models/Ad');
 const Post = require("../models/Post");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
+const { sendExpoPushNotification } = require("../utils/expoPush");
 
 // Helper function to get active ads for mixing with posts
 const getActiveAds = async (userCountry = null, limit = 5) => {
@@ -759,13 +760,22 @@ exports.likePost = async (req, res) => {
       post.likes.push(req.user.id);
       // Send notification to the post author (only when liking, not unliking)
       if (post.author.toString() !== req.user.id) {
-        await Notification.create({
+        const notification = await Notification.create({
           user: post.author,
           from: req.user.id,
           type: "like_post",
           post: post._id,
           message: `liked your post.`,
         });
+        const postAuthor = await User.findById(post.author);
+        if (postAuthor?.expoPushToken) {
+          await sendExpoPushNotification(
+            postAuthor.expoPushToken,
+            "New Like",
+            `${req.user.username} liked your post.`,
+            { notificationId: notification._id, postId: post._id }
+          );
+        }
       }
     } else {
       // User has already liked this post, remove like (unlike)
@@ -812,14 +822,24 @@ exports.addComment = async (req, res) => {
 
     // Send notification to the post author
     if (post.author.toString() !== req.user.id) {
-      await Notification.create({
+      const notification = await Notification.create({
         user: post.author,
         from: req.user.id,
         type: "comment",
         post: post._id,
-        comment: addedComment._id, // <-- Add this line
+        comment: addedComment._id,
         message: `commented on your post.`,
       });
+      // Send push notification if user has expoPushToken
+      const postAuthor = await User.findById(post.author);
+      if (postAuthor?.expoPushToken) {
+        await sendExpoPushNotification(
+          postAuthor.expoPushToken,
+          "New Comment",
+          `${req.user.username} commented on your post.`,
+          { notificationId: notification._id, postId: post._id }
+        );
+      }
     }
 
     // Create mention notifications
@@ -857,7 +877,7 @@ exports.likeComment = async (req, res) => {
       
       // Send notification to the comment author (only when liking, not unliking)
       if (comment.author.toString() !== req.user.id) {
-        await Notification.create({
+        const notification = await Notification.create({
           user: comment.author,
           from: req.user.id,
           type: "like_comment",
@@ -865,6 +885,15 @@ exports.likeComment = async (req, res) => {
           comment: comment._id,
           message: `liked your comment on a post.`,
         });
+        const commentAuthor = await User.findById(comment.author);
+        if (commentAuthor?.expoPushToken) {
+          await sendExpoPushNotification(
+            commentAuthor.expoPushToken,
+            "New Like",
+            `${req.user.username} liked your comment.`,
+            { notificationId: notification._id, postId: post._id }
+          );
+        }
       }
     } else {
       // User has already liked this comment, remove like (unlike)
@@ -909,7 +938,7 @@ exports.likeReply = async (req, res) => {
       
       // Send notification to the reply author (only when liking, not unliking)
       if (reply.author.toString() !== req.user.id) {
-        await Notification.create({
+        const notification = await Notification.create({
           user: reply.author,
           from: req.user.id,
           type: "like_reply",
@@ -918,6 +947,15 @@ exports.likeReply = async (req, res) => {
           reply: reply._id,
           message: `liked your reply on a post.`,
         });
+        const replyAuthor = await User.findById(reply.author);
+        if (replyAuthor?.expoPushToken) {
+          await sendExpoPushNotification(
+            replyAuthor.expoPushToken,
+            "New Like",
+            `${req.user.username} liked your reply.`,
+            { notificationId: notification._id, postId: post._id }
+          );
+        }
       }
     } else {
       // User has already liked this reply, remove like (unlike)
@@ -973,7 +1011,7 @@ exports.addReply = async (req, res) => {
 
     // Send notification to the comment author (if replying to comment)
     if (!replyToUserId && comment.author.toString() !== req.user.id) {
-      await Notification.create({
+      const notification = await Notification.create({
         user: comment.author,
         from: req.user.id,
         type: "reply",
@@ -982,11 +1020,20 @@ exports.addReply = async (req, res) => {
         reply: addedReply._id,
         message: "replied to you",
       });
+      const commentAuthor = await User.findById(comment.author);
+      if (commentAuthor?.expoPushToken) {
+        await sendExpoPushNotification(
+          commentAuthor.expoPushToken,
+          "New Reply",
+          `${req.user.username} replied to your comment.`,
+          { notificationId: notification._id, postId: post._id }
+        );
+      }
     }
 
     // Send notification to the reply author (if replying to a reply)
     if (replyToUserId && replyToUserId.toString() !== req.user.id) {
-      await Notification.create({
+      const notification = await Notification.create({
         user: replyToUserId,
         from: req.user.id,
         type: "reply",
@@ -995,6 +1042,15 @@ exports.addReply = async (req, res) => {
         reply: addedReply._id,
         message: "replied to you",
       });
+      const replyAuthor = await User.findById(replyToUserId);
+      if (replyAuthor?.expoPushToken) {
+        await sendExpoPushNotification(
+          replyAuthor.expoPushToken,
+          "New Reply",
+          `${req.user.username} replied to your reply.`,
+          { notificationId: notification._id, postId: post._id }
+        );
+      }
     }
 
     // Create mention notifications
@@ -1398,7 +1454,15 @@ async function createMentionNotifications(content, fromUserId, fromUsername, pos
         if (commentId) notificationData.comment = commentId;
         if (replyId) notificationData.reply = replyId;
 
-        await Notification.create(notificationData);
+        const notification = await Notification.create(notificationData);
+        if (mentionedUser.expoPushToken) {
+          await sendExpoPushNotification(
+            mentionedUser.expoPushToken,
+            "Mention",
+            `${fromUsername} ${notificationData.message}.`,
+            { notificationId: notification._id, postId }
+          );
+        }
       }
     } catch (error) {
       console.error(`Error creating mention notification for @${username}:`, error);

@@ -27,6 +27,7 @@ const userSchema = new mongoose.Schema({
     location: { type: String, default: "" },
     // Add more profile fields as needed
   },
+  expoPushToken: { type: String, default: "" }, // Expo push notification token
 }, { timestamps: true });
 
 module.exports = mongoose.model("User", userSchema);
