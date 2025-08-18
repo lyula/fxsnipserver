@@ -23,6 +23,10 @@ function requireAuth(req, res, next) {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log('Token decoded successfully, user:', decoded.id);
     console.log('Full decoded token:', decoded);
+    // Ensure req.user._id is set for Mongoose queries
+    if (decoded.id && !decoded._id) {
+      decoded._id = decoded.id;
+    }
     req.user = decoded;
     console.log('req.user set to:', req.user);
     next();
