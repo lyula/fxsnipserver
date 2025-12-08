@@ -1,33 +1,33 @@
 const express = require('express');
 const router = express.Router();
-const authenticate = require('../middleware/authenticate');
+const { requireAuth } = require('../middleware/auth');
 const tradingAccountController = require('../controllers/tradingAccountController');
 
 // Connect a new trading account
-router.post('/connect', authenticate, tradingAccountController.connectAccount);
+router.post('/connect', requireAuth, tradingAccountController.connectAccount);
 
 // Get all user's trading accounts
-router.get('/', authenticate, tradingAccountController.getAccounts);
+router.get('/', requireAuth, tradingAccountController.getAccounts);
 
 // Get dashboard summary (aggregated stats)
-router.get('/dashboard-summary', authenticate, tradingAccountController.getDashboardSummary);
+router.get('/dashboard-summary', requireAuth, tradingAccountController.getDashboardSummary);
 
 // Get specific account details
-router.get('/:accountId', authenticate, tradingAccountController.getAccount);
+router.get('/:accountId', requireAuth, tradingAccountController.getAccount);
 
 // Sync account data from MetaAPI
-router.post('/:accountId/sync', authenticate, tradingAccountController.syncAccount);
+router.post('/:accountId/sync', requireAuth, tradingAccountController.syncAccount);
 
 // Get account statistics
-router.get('/:accountId/stats', authenticate, tradingAccountController.getAccountStats);
+router.get('/:accountId/stats', requireAuth, tradingAccountController.getAccountStats);
 
 // Set primary account
-router.put('/:accountId/set-primary', authenticate, tradingAccountController.setPrimaryAccount);
+router.put('/:accountId/set-primary', requireAuth, tradingAccountController.setPrimaryAccount);
 
 // Disconnect account
-router.post('/:accountId/disconnect', authenticate, tradingAccountController.disconnectAccount);
+router.post('/:accountId/disconnect', requireAuth, tradingAccountController.disconnectAccount);
 
 // Delete account
-router.delete('/:accountId', authenticate, tradingAccountController.deleteAccount);
+router.delete('/:accountId', requireAuth, tradingAccountController.deleteAccount);
 
 module.exports = router;
