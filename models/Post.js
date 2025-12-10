@@ -51,13 +51,22 @@ const PostSchema = new mongoose.Schema(
     author: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     comments: [CommentSchema],
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-  viewers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    viewers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     shareCount: { type: Number, default: 0 }, // Track number of times post is shared
     editedAt: { type: Date },
     isEdited: { type: Boolean, default: false },
   },
-  { timestamps: true } // This adds createdAt and updatedAt automatically
+  { 
+    timestamps: true, // This adds createdAt and updatedAt automatically
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+  }
 );
+
+// Virtual field for backward compatibility: returns count of viewers
+PostSchema.virtual('views').get(function() {
+  return this.viewers ? this.viewers.length : 0;
+});
 
 // Added these middleware functions before module.exports
 

@@ -369,7 +369,7 @@ exports.getPosts = async (req, res) => {
       // Calculate engagement metrics
       const likesCount = Array.isArray(post.likes) ? post.likes.length : 0;
       const commentsCount = Array.isArray(post.comments) ? post.comments.length : 0;
-      const viewsCount = post.views || 0;
+      const viewsCount = Array.isArray(post.viewers) ? post.viewers.length : 0;
       const totalEngagement = likesCount + commentsCount;
       
       // Fresh content scoring
@@ -706,7 +706,7 @@ exports.getFollowingPosts = async (req, res) => {
       // Calculate engagement metrics
       const likesCount = Array.isArray(post.likes) ? post.likes.length : 0;
       const commentsCount = Array.isArray(post.comments) ? post.comments.length : 0;
-      const viewsCount = post.views || 0;
+      const viewsCount = Array.isArray(post.viewers) ? post.viewers.length : 0;
       const totalEngagement = likesCount + commentsCount;
       
       return {
@@ -1106,20 +1106,31 @@ exports.incrementPostViews = async (req, res) => {
     if (!post) {
       return res.status(404).json({ error: "Post not found" });
     }
+    
+    // Initialize viewers array if it doesn't exist
     if (!post.viewers) post.viewers = [];
-    if (!post.viewers.some(id => String(id) === String(userId))) {
+    
+    // Only add user if they haven't viewed this post before
+    const hasViewed = post.viewers.some(id => String(id) === String(userId));
+    if (!hasViewed) {
       post.viewers.push(userId);
       await post.save();
+      
+      // Emit real-time view update to all connected clients
+      const io = req.app.get('socketio');
+      if (io) {
+        io.emit('post-view-updated', {
+          postId: post._id,
+          views: post.viewers.length // Send count instead of array
+        });
+      }
     }
-    // Emit real-time view update to all connected clients
-    const io = req.app.get('socketio');
-    if (io) {
-      io.emit('post-view-updated', {
-        postId: post._id,
-        viewers: post.viewers
-      });
-    }
-    res.json({ viewers: post.viewers });
+    
+    res.json({ 
+      viewers: post.viewers.length, // Return count for backward compatibility
+      viewCount: post.viewers.length,
+      hasViewed: true
+    });
   } catch (error) {
     console.error("Error tracking view:", error);
     res.status(500).json({ error: "Failed to track view" });
