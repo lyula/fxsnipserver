@@ -4,7 +4,12 @@ const { generateToken } = require("../utils/jwt");
 
 exports.register = async (req, res, next) => {
   try {
-  const { username, email, password, country, countryCode, countryFlag, gender, dateOfBirth } = req.body;
+  const { name, username, email, password, country, countryCode, countryFlag, gender, dateOfBirth } = req.body;
+
+    // Name validation
+    if (!name || name.trim().length < 1) {
+      return res.status(400).json({ message: "Name is required." });
+    }
 
     // Username validation (Instagram-style)
     const usernameRegex = /^(?!.*[_.]{2})[a-zA-Z0-9](?!.*[_.]{2})[a-zA-Z0-9._]{1,28}[a-zA-Z0-9]$/;
@@ -40,6 +45,7 @@ exports.register = async (req, res, next) => {
 
     const hash = await bcrypt.hash(password, 10);
     const user = await User.create({
+      name,
       username,
       email,
       password: hash,
@@ -65,6 +71,7 @@ exports.login = async (req, res, next) => {
     if (!match) return res.status(401).json({ message: "Invalid credentials" });
     const token = generateToken({
       id: user._id,
+      name: user.name,
       username: user.username,
       email: user.email,
       country: user.country,
