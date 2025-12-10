@@ -23,14 +23,24 @@ router.get("/profile", requireAuth, async (req, res) => {
 
 // Update profile
 router.put("/profile", requireAuth, async (req, res) => {
-  const { username, email, profile } = req.body;
+  const { name, username, email, profile } = req.body;
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
     // Check if nothing has changed
-    if (username === user.username && email === user.email && !profile) {
+    if (name === user.name && username === user.username && email === user.email && !profile) {
       return res.status(400).json({ message: "No changes to save." });
+    }
+
+    // Name validation
+    if (name !== undefined) {
+      if (!name || name.trim().length < 1) {
+        return res.status(400).json({ message: "Name cannot be empty." });
+      }
+      if (name.trim().length > 100) {
+        return res.status(400).json({ message: "Name is too long. Maximum 100 characters." });
+      }
     }
 
     // Username validation (same as registration)
@@ -60,6 +70,7 @@ router.put("/profile", requireAuth, async (req, res) => {
     }
 
     // Update fields
+    if (name !== undefined) user.name = name.trim();
     user.username = username || user.username;
     user.email = email || user.email;
     if (profile && typeof profile === "object") {
@@ -74,7 +85,8 @@ router.put("/profile", requireAuth, async (req, res) => {
     }
     await user.save();
     res.json({ 
-      message: "Profile updated", 
+      message: "Profile updated",
+      name: user.name,
       username: user.username, 
       email: user.email,
       profile: user.profile
