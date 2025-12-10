@@ -93,7 +93,15 @@ router.put("/profile", requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating profile:", error);
-    res.status(500).json({ message: "Failed to update profile" });
+    console.error("Error details:", {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    res.status(500).json({ 
+      message: "Failed to update profile",
+      error: error.message 
+    });
   }
 });
 
