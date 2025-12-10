@@ -46,34 +46,8 @@ router.post("/:postId/comments", auth, addComment);
 // Add a reply to a comment
 router.post("/:postId/comments/:commentId/replies", auth, addReply);
 
-// Increment post views
-router.post('/:id/view', (req, res, next) => {
-  console.warn('[POST /posts/:id/view] Incoming view request:', {
-    postId: req.params.id,
-    userId: req.user && req.user.id
-  });
-  next();
-}, incrementPostViews);
-
-// Track post view
-router.post("/:id/view", async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const post = await Post.findById(req.params.id);
-    if (!post) {
-      return res.status(404).json({ error: "Post not found" });
-    }
-    if (!post.viewers) post.viewers = [];
-    if (!post.viewers.some(id => String(id) === String(userId))) {
-      post.viewers.push(userId);
-      await post.save();
-    }
-    res.json({ viewers: post.viewers });
-  } catch (error) {
-    console.error("Error tracking view:", error);
-    res.status(500).json({ error: "Failed to track view" });
-  }
-});
+// Increment post views - using auth middleware and controller function
+router.post('/:id/view', auth, incrementPostViews);
 
 // Get posts by username (public profile)
 router.get("/user/:username", async (req, res) => {
