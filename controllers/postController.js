@@ -179,14 +179,20 @@ exports.searchPosts = async (req, res) => {
       .limit(parseInt(limit))
       .lean();
 
+    // Add views field (virtual field not included in lean)
+    const postsWithViews = posts.map(post => ({
+      ...post,
+      views: post.viewers ? post.viewers.length : 0
+    }));
+
     const totalAvailablePosts = await Post.countDocuments(query);
-    const hasMore = (parseInt(offset) + posts.length) < totalAvailablePosts;
+    const hasMore = (parseInt(offset) + postsWithViews.length) < totalAvailablePosts;
 
     res.status(200).json({
-      posts,
+      posts: postsWithViews,
       hasMore,
       totalAvailablePosts,
-      nextOffset: parseInt(offset) + posts.length
+      nextOffset: parseInt(offset) + postsWithViews.length
     });
   } catch (error) {
     console.error("Error searching posts:", error);
@@ -339,9 +345,15 @@ exports.getPosts = async (req, res) => {
       .sort(sortOptions)
       .lean(); // Use lean for better performance
 
-    console.log(`Found ${posts ? posts.length : 0} posts in database`);
+    // Add views field (virtual field not included in lean)
+    const postsWithViews = posts.map(post => ({
+      ...post,
+      views: post.viewers ? post.viewers.length : 0
+    }));
 
-    if (!posts || posts.length === 0) {
+    console.log(`Found ${postsWithViews ? postsWithViews.length : 0} posts in database`);
+
+    if (!postsWithViews || postsWithViews.length === 0) {
       console.log('No posts found, returning empty response');
       return res.status(200).json({
         posts: [],
@@ -362,7 +374,7 @@ exports.getPosts = async (req, res) => {
 
     // Calculate time-based metrics for each post
     const now = new Date();
-    const enrichedPosts = posts.map(post => {
+    const enrichedPosts = postsWithViews.map(post => {
       const postAge = (now - new Date(post.createdAt)) / (1000 * 60); // age in minutes
       const hoursSincePost = postAge / 60;
       
@@ -699,7 +711,7 @@ exports.getFollowingPosts = async (req, res) => {
 
     // Calculate time-based metrics for each post
     const now = new Date();
-    const enrichedPosts = posts.map(post => {
+    const enrichedPosts = postsWithViews.map(post => {
       const postAge = (now - new Date(post.createdAt)) / (1000 * 60); // age in minutes
       const hoursSincePost = postAge / 60;
       
