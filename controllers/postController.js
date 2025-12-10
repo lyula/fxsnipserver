@@ -182,7 +182,7 @@ exports.searchPosts = async (req, res) => {
     // Add views field (virtual field not included in lean)
     const postsWithViews = posts.map(post => ({
       ...post,
-      views: post.viewers ? post.viewers.length : 0
+      views: post.views ? post.views.length : 0
     }));
 
     const totalAvailablePosts = await Post.countDocuments(query);
@@ -348,7 +348,7 @@ exports.getPosts = async (req, res) => {
     // Add views field (virtual field not included in lean)
     const postsWithViews = posts.map(post => ({
       ...post,
-      views: post.viewers ? post.viewers.length : 0
+      views: post.views ? post.views.length : 0
     }));
 
     console.log(`Found ${postsWithViews ? postsWithViews.length : 0} posts in database`);
@@ -381,7 +381,7 @@ exports.getPosts = async (req, res) => {
       // Calculate engagement metrics
       const likesCount = Array.isArray(post.likes) ? post.likes.length : 0;
       const commentsCount = Array.isArray(post.comments) ? post.comments.length : 0;
-      const viewsCount = Array.isArray(post.viewers) ? post.viewers.length : 0;
+      const viewsCount = Array.isArray(post.views) ? post.views.length : 0;
       const totalEngagement = likesCount + commentsCount;
       
       // Fresh content scoring
@@ -718,7 +718,7 @@ exports.getFollowingPosts = async (req, res) => {
       // Calculate engagement metrics
       const likesCount = Array.isArray(post.likes) ? post.likes.length : 0;
       const commentsCount = Array.isArray(post.comments) ? post.comments.length : 0;
-      const viewsCount = Array.isArray(post.viewers) ? post.viewers.length : 0;
+      const viewsCount = Array.isArray(post.views) ? post.views.length : 0;
       const totalEngagement = likesCount + commentsCount;
       
       return {
@@ -1120,12 +1120,12 @@ exports.incrementPostViews = async (req, res) => {
     }
     
     // Initialize viewers array if it doesn't exist
-    if (!post.viewers) post.viewers = [];
+    if (!post.views) post.views = [];
     
     // Only add user if they haven't viewed this post before
-    const hasViewed = post.viewers.some(id => String(id) === String(userId));
+    const hasViewed = post.views.some(id => String(id) === String(userId));
     if (!hasViewed) {
-      post.viewers.push(userId);
+      post.views.push(userId);
       await post.save();
       
       // Emit real-time view update to all connected clients
@@ -1133,14 +1133,14 @@ exports.incrementPostViews = async (req, res) => {
       if (io) {
         io.emit('post-view-updated', {
           postId: post._id,
-          views: post.viewers.length // Send count instead of array
+          views: post.views.length // Send count instead of array
         });
       }
     }
     
     res.json({ 
-      viewers: post.viewers.length, // Return count for backward compatibility
-      viewCount: post.viewers.length,
+      viewers: post.views.length, // Return count for backward compatibility
+      viewCount: post.views.length,
       hasViewed: true
     });
   } catch (error) {
