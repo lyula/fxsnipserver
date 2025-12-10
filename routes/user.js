@@ -16,9 +16,27 @@ async function syncFollowCounts(userId) {
 
 // Get profile
 router.get("/profile", requireAuth, async (req, res) => {
-  const user = await User.findById(req.user.id)
-    .select("name username email country countryFlag verified createdAt profile"); // Include name and profile
-  res.json(user);
+  try {
+    const user = await User.findById(req.user.id)
+      .select("name username email country countryFlag verified createdAt profile gender dateOfBirth");
+    
+    // Debug: Check for missing required fields
+    const missingFields = [];
+    if (!user.username) missingFields.push('username');
+    if (!user.email) missingFields.push('email');
+    if (!user.password) missingFields.push('password');
+    if (!user.gender) missingFields.push('gender');
+    if (!user.dateOfBirth) missingFields.push('dateOfBirth');
+    
+    if (missingFields.length > 0) {
+      console.warn(`User ${user._id} is missing required fields:`, missingFields);
+    }
+    
+    res.json(user);
+  } catch (error) {
+    console.error("Error fetching profile:", error);
+    res.status(500).json({ message: "Failed to fetch profile" });
+  }
 });
 
 // Update profile
