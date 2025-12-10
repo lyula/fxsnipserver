@@ -4,8 +4,8 @@ exports.getPostComments = async (req, res) => {
     const { postId } = req.params;
     const post = await require("../models/Post").findById(postId)
       .populate([
-        { path: "comments.author", select: "username verified profile profileImage" },
-        { path: "comments.replies.author", select: "username verified profile profileImage" }
+        { path: "comments.author", select: "name username verified profile profileImage" },
+        { path: "comments.replies.author", select: "name username verified profile profileImage" }
       ])
       .select("comments");
     if (!post) return res.status(404).json({ error: "Post not found" });
@@ -161,18 +161,18 @@ exports.searchPosts = async (req, res) => {
     const posts = await Post.find(query)
       .populate({
         path: "author",
-        select: "username verified countryFlag profile profileImage"
+        select: "name username verified countryFlag profile profileImage"
       })
       .populate({
         path: "comments",
         populate: {
           path: "author",
-          select: "username verified profile profileImage"
+          select: "name username verified profile profileImage"
         }
       })
       .populate({
         path: "comments.replies.author",
-        select: "username verified profile profileImage"
+        select: "name username verified profile profileImage"
       })
       .sort({ createdAt: -1 })
       .skip(parseInt(offset))
@@ -257,7 +257,7 @@ exports.createPost = async (req, res) => {
     // Populate author with username, verified, countryFlag, and profile (including profileImage)
     await post.populate({
       path: "author",
-      select: "username verified countryFlag profile"
+      select: "name username verified countryFlag profile"
     });
 
     // Ensure the returned post is a plain object (not a Mongoose doc)
@@ -329,18 +329,18 @@ exports.getPosts = async (req, res) => {
     const posts = await Post.find(query)
       .populate({
         path: "author",
-        select: "username verified countryFlag profile profileImage"
+        select: "name username verified countryFlag profile profileImage"
       })
       .populate({
         path: "comments",
         populate: {
           path: "author",
-          select: "username verified profile profileImage"
+          select: "name username verified profile profileImage"
         }
       })
       .populate({
         path: "comments.replies.author",
-        select: "username verified profile profileImage"
+        select: "name username verified profile profileImage"
       })
       .sort(sortOptions)
       .lean(); // Use lean for better performance
@@ -675,18 +675,18 @@ exports.getFollowingPosts = async (req, res) => {
     const posts = await Post.find(query)
       .populate({
         path: "author",
-        select: "username verified countryFlag profile profileImage"
+        select: "name username verified countryFlag profile profileImage"
       })
       .populate({
         path: "comments",
         populate: {
           path: "author",
-          select: "username verified profile profileImage"
+          select: "name username verified profile profileImage"
         }
       })
       .populate({
         path: "comments.replies.author",
-        select: "username verified profile profileImage"
+        select: "name username verified profile profileImage"
       })
       .sort(sortOptions)
       .lean(); // Use lean for better performance
@@ -826,9 +826,9 @@ exports.likePost = async (req, res) => {
 
     // Populate author fields for response
     await post.populate([
-      { path: "author", select: "username verified countryFlag profile profileImage" },
-      { path: "comments.author", select: "username verified profile profileImage" },
-      { path: "comments.replies.author", select: "username verified profile profileImage" }
+      { path: "author", select: "name username verified countryFlag profile profileImage" },
+      { path: "comments.author", select: "name username verified profile profileImage" },
+      { path: "comments.replies.author", select: "name username verified profile profileImage" }
     ]);
 
     // Ensure the returned post is a plain object (not a Mongoose doc)
@@ -888,9 +888,9 @@ exports.addComment = async (req, res) => {
     // Re-fetch and fully populate the post for response
     const updatedPost = await Post.findById(post._id)
       .populate([
-        { path: "author", select: "username verified countryFlag profile profileImage" },
-        { path: "comments.author", select: "username verified profile profileImage" },
-        { path: "comments.replies.author", select: "username verified profile profileImage" }
+        { path: "author", select: "name username verified countryFlag profile profileImage" },
+        { path: "comments.author", select: "name username verified profile profileImage" },
+        { path: "comments.replies.author", select: "name username verified profile profileImage" }
       ]);
 
     res.status(201).json(updatedPost.toObject());
@@ -945,9 +945,9 @@ exports.likeComment = async (req, res) => {
     // Re-fetch and fully populate the post for response
     const updatedPost = await Post.findById(post._id)
       .populate([
-        { path: "author", select: "username verified countryFlag profile profileImage" },
-        { path: "comments.author", select: "username verified profile profileImage" },
-        { path: "comments.replies.author", select: "username verified profile profileImage" }
+        { path: "author", select: "name username verified countryFlag profile profileImage" },
+        { path: "comments.author", select: "name username verified profile profileImage" },
+        { path: "comments.replies.author", select: "name username verified profile profileImage" }
       ]);
 
     res.status(200).json(updatedPost.toObject());
@@ -1007,9 +1007,9 @@ exports.likeReply = async (req, res) => {
     // Re-fetch and fully populate the post for response
     const updatedPost = await Post.findById(post._id)
       .populate([
-        { path: "author", select: "username verified countryFlag profile profileImage" },
-        { path: "comments.author", select: "username verified profile profileImage" },
-        { path: "comments.replies.author", select: "username verified profile profileImage" }
+        { path: "author", select: "name username verified countryFlag profile profileImage" },
+        { path: "comments.author", select: "name username verified profile profileImage" },
+        { path: "comments.replies.author", select: "name username verified profile profileImage" }
       ]);
 
     res.status(200).json(updatedPost.toObject());
@@ -1099,9 +1099,9 @@ exports.addReply = async (req, res) => {
     // Re-fetch and fully populate the post for response
     const updatedPost = await Post.findById(post._id)
       .populate([
-        { path: "author", select: "username verified countryFlag profile profileImage" },
-        { path: "comments.author", select: "username verified profile profileImage" },
-        { path: "comments.replies.author", select: "username verified profile profileImage" }
+        { path: "author", select: "name username verified countryFlag profile profileImage" },
+        { path: "comments.author", select: "name username verified profile profileImage" },
+        { path: "comments.replies.author", select: "name username verified profile profileImage" }
       ]);
 
     res.status(201).json(updatedPost.toObject());
@@ -1211,9 +1211,9 @@ exports.editPost = async (req, res) => {
     
     // Populate author fields for response
     await post.populate([
-      { path: "author", select: "username verified profileImage profileImagePublicId countryFlag" },
-      { path: "comments.author", select: "username verified profileImage profileImagePublicId" },
-      { path: "comments.replies.author", select: "username verified profileImage profileImagePublicId" }
+      { path: "author", select: "name username verified profileImage profileImagePublicId countryFlag" },
+      { path: "comments.author", select: "name username verified profileImage profileImagePublicId" },
+      { path: "comments.replies.author", select: "name username verified profileImage profileImagePublicId" }
     ]);
     
     res.status(200).json(post);
@@ -1306,9 +1306,9 @@ exports.editComment = async (req, res) => {
     // Re-fetch and fully populate the post for response
     const updatedPost = await Post.findById(post._id)
       .populate([
-        { path: "author", select: "username verified countryFlag profile profileImage" },
-        { path: "comments.author", select: "username verified profile profileImage" },
-        { path: "comments.replies.author", select: "username verified profile profileImage" }
+        { path: "author", select: "name username verified countryFlag profile profileImage" },
+        { path: "comments.author", select: "name username verified profile profileImage" },
+        { path: "comments.replies.author", select: "name username verified profile profileImage" }
       ]);
 
     res.status(200).json(updatedPost.toObject());
@@ -1344,9 +1344,9 @@ exports.deleteComment = async (req, res) => {
     // Re-fetch and fully populate the post for response
     const updatedPost = await Post.findById(post._id)
       .populate([
-        { path: "author", select: "username verified countryFlag profile profileImage" },
-        { path: "comments.author", select: "username verified profile profileImage" },
-        { path: "comments.replies.author", select: "username verified profile profileImage" }
+        { path: "author", select: "name username verified countryFlag profile profileImage" },
+        { path: "comments.author", select: "name username verified profile profileImage" },
+        { path: "comments.replies.author", select: "name username verified profile profileImage" }
       ]);
 
     res.status(200).json(updatedPost.toObject());
@@ -1388,9 +1388,9 @@ exports.editReply = async (req, res) => {
     // Re-fetch and fully populate the post for response
     const updatedPost = await Post.findById(post._id)
       .populate([
-        { path: "author", select: "username verified countryFlag profile profileImage" },
-        { path: "comments.author", select: "username verified profile profileImage" },
-        { path: "comments.replies.author", select: "username verified profile profileImage" }
+        { path: "author", select: "name username verified countryFlag profile profileImage" },
+        { path: "comments.author", select: "name username verified profile profileImage" },
+        { path: "comments.replies.author", select: "name username verified profile profileImage" }
       ]);
 
     res.status(200).json(updatedPost.toObject());
@@ -1431,9 +1431,9 @@ exports.deleteReply = async (req, res) => {
     // Re-fetch and fully populate the post for response
     const updatedPost = await Post.findById(post._id)
       .populate([
-        { path: "author", select: "username verified countryFlag profile profileImage" },
-        { path: "comments.author", select: "username verified profile profileImage" },
-        { path: "comments.replies.author", select: "username verified profile profileImage" }
+        { path: "author", select: "name username verified countryFlag profile profileImage" },
+        { path: "comments.author", select: "name username verified profile profileImage" },
+        { path: "comments.replies.author", select: "name username verified profile profileImage" }
       ]);
 
     res.status(200).json(updatedPost.toObject());
