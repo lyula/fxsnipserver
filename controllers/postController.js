@@ -205,17 +205,44 @@ cloudinary.config({
 // Create a new post
 exports.createPost = async (req, res) => {
   try {
-    const { content, image, imagePublicId, video, videoPublicId } = req.body;
+    const { content, image, imagePublicId, video, videoPublicId, media } = req.body;
+    
     const post = new Post({
       content,
-      image,
-      imagePublicId,
-      video,
-      videoPublicId,
       author: req.user.id,
       comments: [],
       likes: [],
     });
+
+    // Handle new multiple media format
+    if (media && Array.isArray(media) && media.length > 0) {
+      post.media = media;
+    } else {
+      // Backward compatibility: convert legacy single media to array format
+      if (image || video) {
+        post.media = [];
+        if (image) {
+          post.media.push({
+            url: image,
+            publicId: imagePublicId || '',
+            type: 'image'
+          });
+        }
+        if (video) {
+          post.media.push({
+            url: video,
+            publicId: videoPublicId || '',
+            type: 'video'
+          });
+        }
+      }
+      // Keep legacy fields for backward compatibility
+      post.image = image;
+      post.imagePublicId = imagePublicId;
+      post.video = video;
+      post.videoPublicId = videoPublicId;
+    }
+
     await post.save();
 
     // Create mention notifications
@@ -236,6 +263,7 @@ exports.createPost = async (req, res) => {
 
     res.status(201).json(postObj);
   } catch (error) {
+    console.error("Error creating post:", error);
     res.status(500).json({ error: "Failed to create post" });
   }
 };
@@ -1133,7 +1161,7 @@ exports.getNotifications = async (req, res) => {
 exports.editPost = async (req, res) => {
   try {
     const { postId } = req.params;
-    const { content, image } = req.body;
+    const { content, image, media } = req.body;
     
     const post = await Post.findById(postId);
     if (!post) return res.status(404).json({ error: "Post not found" });
@@ -1144,7 +1172,15 @@ exports.editPost = async (req, res) => {
     }
     
     post.content = content;
+    
+    // Handle new multiple media format
+    if (media !== undefined) {
+      post.media = Array.isArray(media) ? media : [];
+    }
+    
+    // Backward compatibility for legacy single image field
     if (image !== undefined) post.image = image;
+    
     post.editedAt = new Date();
     post.isEdited = true;
     
@@ -1175,13 +1211,38 @@ exports.deletePost = async (req, res) => {
       return res.status(403).json({ error: "Not authorized to delete this post" });
     }
 
-    // Delete media from Cloudinary if present
+    // Delete all media from Cloudinary
+    const deletionPromises = [];
+    
+    // Delete media array items
+    if (post.media && Array.isArray(post.media) && post.media.length > 0) {
+      post.media.forEach(mediaItem => {
+        if (mediaItem.publicId) {
+          const resourceType = mediaItem.type === 'video' ? 'video' : 'image';
+          deletionPromises.push(
+            cloudinary.uploader.destroy(mediaItem.publicId, { resource_type: resourceType })
+              .catch(err => console.error(`Failed to delete ${resourceType} ${mediaItem.publicId}:`, err))
+          );
+        }
+      });
+    }
+    
+    // Delete legacy single media fields (backward compatibility)
     if (post.imagePublicId) {
-      await cloudinary.uploader.destroy(post.imagePublicId, { resource_type: "image" });
+      deletionPromises.push(
+        cloudinary.uploader.destroy(post.imagePublicId, { resource_type: "image" })
+          .catch(err => console.error(`Failed to delete legacy image ${post.imagePublicId}:`, err))
+      );
     }
     if (post.videoPublicId) {
-      await cloudinary.uploader.destroy(post.videoPublicId, { resource_type: "video" });
+      deletionPromises.push(
+        cloudinary.uploader.destroy(post.videoPublicId, { resource_type: "video" })
+          .catch(err => console.error(`Failed to delete legacy video ${post.videoPublicId}:`, err))
+      );
     }
+
+    // Wait for all Cloudinary deletions
+    await Promise.all(deletionPromises);
 
     await Notification.deleteMany({ post: postId });
     await Post.findByIdAndDelete(postId);

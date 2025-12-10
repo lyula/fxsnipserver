@@ -28,13 +28,26 @@ const CommentSchema = new mongoose.Schema(
   { _id: true }
 );
 
+const MediaSchema = new mongoose.Schema({
+  url: { type: String, required: true },
+  publicId: { type: String, required: true },
+  type: { type: String, enum: ['image', 'video'], required: true },
+  width: { type: Number },
+  height: { type: Number },
+  format: { type: String },
+  bytes: { type: Number }
+}, { _id: false });
+
 const PostSchema = new mongoose.Schema(
   {
     content: String,
+    // Legacy fields for backward compatibility
     image: { type: String },
     imagePublicId: { type: String },
     video: { type: String },
     videoPublicId: { type: String },
+    // New multiple media support
+    media: [MediaSchema],
     author: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     comments: [CommentSchema],
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
