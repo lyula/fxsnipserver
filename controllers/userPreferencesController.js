@@ -89,6 +89,32 @@ exports.updateTradingPreferences = async (req, res) => {
 };
 
 /**
+ * Get all confluences
+ */
+exports.getConfluences = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    let preferences = await UserPreferences.findOne({ userId });
+    if (!preferences) {
+      preferences = new UserPreferences({ userId });
+      await preferences.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      confluences: preferences.tradingPreferences.confluences || [],
+    });
+  } catch (error) {
+    console.error('Get confluences error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch confluences',
+    });
+  }
+};
+
+/**
  * Add a confluence
  */
 exports.addConfluence = async (req, res) => {
@@ -138,6 +164,71 @@ exports.addConfluence = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to add confluence',
+    });
+  }
+};
+
+/**
+ * Update a confluence
+ */
+exports.updateConfluence = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { confluenceId } = req.params;
+    const { name, description, category } = req.body;
+
+    const preferences = await UserPreferences.findOne({ userId });
+    if (!preferences) {
+      return res.status(404).json({
+        success: false,
+        message: 'Preferences not found',
+      });
+    }
+
+    const confluence = preferences.tradingPreferences.confluences.find(
+      conf => conf._id.toString() === confluenceId
+    );
+
+    if (!confluence) {
+      return res.status(404).json({
+        success: false,
+        message: 'Confluence not found',
+      });
+    }
+
+    // Check if new name already exists (excluding current confluence)
+    if (name && name !== confluence.name) {
+      const exists = preferences.tradingPreferences.confluences.some(
+        conf => conf._id.toString() !== confluenceId && 
+                conf.name.toLowerCase() === name.toLowerCase()
+      );
+
+      if (exists) {
+        return res.status(400).json({
+          success: false,
+          message: 'Confluence with this name already exists',
+        });
+      }
+    }
+
+    // Update fields
+    if (name !== undefined) confluence.name = name;
+    if (description !== undefined) confluence.description = description;
+    if (category !== undefined) confluence.category = category;
+
+    await preferences.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Confluence updated successfully',
+      confluence,
+      preferences,
+    });
+  } catch (error) {
+    console.error('Update confluence error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update confluence',
     });
   }
 };

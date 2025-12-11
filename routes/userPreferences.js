@@ -9,8 +9,14 @@ router.get('/', requireAuth, userPreferencesController.getPreferences);
 // Update trading preferences
 router.put('/trading', requireAuth, userPreferencesController.updateTradingPreferences);
 
+// Get all confluences
+router.get('/confluences', requireAuth, userPreferencesController.getConfluences);
+
 // Add confluence
 router.post('/confluences', requireAuth, userPreferencesController.addConfluence);
+
+// Update confluence
+router.put('/confluences/:confluenceId', requireAuth, userPreferencesController.updateConfluence);
 
 // Remove confluence
 router.delete('/confluences/:confluenceId', requireAuth, userPreferencesController.removeConfluence);
