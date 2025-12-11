@@ -250,12 +250,28 @@ exports.deleteAccount = async (req, res) => {
       });
     }
 
-    // Disconnect first if active
+    // Try to disconnect first if active (don't fail if this errors)
     if (account.connectionState !== 'UNDEPLOYED') {
-      await metaApiService.disconnectAccount(accountId);
+      try {
+        await metaApiService.disconnectAccount(accountId);
+      } catch (disconnectError) {
+        console.error('Warning: Failed to disconnect account during deletion:', disconnectError.message);
+        // Continue with deletion even if disconnect fails
+      }
     }
 
-    // Delete account
+    // Delete all associated trades from TradeJournal
+    const TradeJournal = require('../models/TradeJournal');
+    await TradeJournal.deleteMany({ accountId });
+
+    // Remove from user preferences if set as primary
+    const UserPreferences = require('../models/UserPreferences');
+    await UserPreferences.updateMany(
+      { 'dashboardSettings.primaryAccountId': accountId },
+      { $unset: { 'dashboardSettings.primaryAccountId': '' } }
+    );
+
+    // Delete the account
     await TradingAccount.findByIdAndDelete(accountId);
 
     res.status(200).json({
@@ -267,6 +283,7 @@ exports.deleteAccount = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to delete account',
+      error: error.message,
     });
   }
 };
