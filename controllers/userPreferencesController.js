@@ -149,7 +149,7 @@ exports.addConfluence = async (req, res) => {
     preferences.tradingPreferences.confluences.push({
       name,
       description: description || '',
-      category: category || 'Technical',
+      category: category || 'technical',
     });
 
     await preferences.save();

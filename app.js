@@ -80,7 +80,7 @@ app.use("/api/ads", adRoutes);
 app.use("/api/ad-interactions", adInteractionRoutes);
 app.use("/api/admin/ads", adminAdRoutes);
 app.use("/api/payments", paymentRoutes);
-app.use("/api/trading-accounts", require("./routes/tradingAccount"));
+app.use("/api/trading-account", require("./routes/tradingAccount"));
 app.use("/api/trade-journal", require("./routes/tradeJournal"));
 app.use("/api/user-preferences", require("./routes/userPreferences"));
 app.use(errorHandler);
