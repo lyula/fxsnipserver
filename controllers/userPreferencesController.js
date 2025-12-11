@@ -97,7 +97,26 @@ exports.getConfluences = async (req, res) => {
 
     let preferences = await UserPreferences.findOne({ userId });
     if (!preferences) {
-      preferences = new UserPreferences({ userId });
+      preferences = new UserPreferences({ 
+        userId,
+        tradingPreferences: {
+          preferredPairs: [],
+          confluences: [],
+          strategies: [],
+          preferredSessions: [],
+        }
+      });
+      await preferences.save();
+    }
+
+    // Initialize tradingPreferences if it doesn't exist (for old documents)
+    if (!preferences.tradingPreferences) {
+      preferences.tradingPreferences = {
+        preferredPairs: [],
+        confluences: [],
+        strategies: [],
+        preferredSessions: [],
+      };
       await preferences.save();
     }
 
@@ -131,11 +150,29 @@ exports.addConfluence = async (req, res) => {
 
     let preferences = await UserPreferences.findOne({ userId });
     if (!preferences) {
-      preferences = new UserPreferences({ userId });
+      preferences = new UserPreferences({ 
+        userId,
+        tradingPreferences: {
+          preferredPairs: [],
+          confluences: [],
+          strategies: [],
+          preferredSessions: [],
+        }
+      });
+    }
+
+    // Initialize tradingPreferences if it doesn't exist (for old documents)
+    if (!preferences.tradingPreferences) {
+      preferences.tradingPreferences = {
+        preferredPairs: [],
+        confluences: [],
+        strategies: [],
+        preferredSessions: [],
+      };
     }
 
     // Check if confluence already exists
-    const exists = preferences.tradingPreferences.confluences.some(
+    const exists = preferences.tradingPreferences.confluences && preferences.tradingPreferences.confluences.some(
       conf => conf.name.toLowerCase() === name.toLowerCase()
     );
 
@@ -161,9 +198,12 @@ exports.addConfluence = async (req, res) => {
     });
   } catch (error) {
     console.error('Add confluence error:', error);
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Failed to add confluence',
+      error: error.message,
     });
   }
 };
@@ -182,6 +222,14 @@ exports.updateConfluence = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Preferences not found',
+      });
+    }
+
+    // Initialize tradingPreferences if it doesn't exist
+    if (!preferences.tradingPreferences || !preferences.tradingPreferences.confluences) {
+      return res.status(404).json({
+        success: false,
+        message: 'No confluences found',
       });
     }
 
@@ -246,6 +294,14 @@ exports.removeConfluence = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Preferences not found',
+      });
+    }
+
+    // Initialize tradingPreferences if it doesn't exist
+    if (!preferences.tradingPreferences || !preferences.tradingPreferences.confluences) {
+      return res.status(404).json({
+        success: false,
+        message: 'No confluences found',
       });
     }
 
