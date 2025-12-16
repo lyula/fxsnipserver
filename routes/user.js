@@ -680,13 +680,15 @@ router.get("/public/:username", async (req, res) => {
     .limit(limit)
     .lean();
     
-    // Add counts and media to posts
+    // Add counts, media, and liked status to posts
     const enrichedPosts = posts.map(post => ({
       ...post,
       likesCount: Array.isArray(post.likes) ? post.likes.length : 0,
       commentsCount: Array.isArray(post.comments) ? post.comments.length : 0,
       shareCount: post.shareCount || 0,
-      media: post.media || []
+      media: post.media || [],
+      liked: req.user ? (Array.isArray(post.likes) && post.likes.some(like => String(like._id) === String(req.user.id))) : false
+    }));ked: Array.isArray(post.likes) && post.likes.some(like => String(like._id) === String(req.user.id))
     }));
 
     res.json({
