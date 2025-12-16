@@ -75,18 +75,20 @@ router.get("/profile", requireAuth, async (req, res) => {
     .lean();
     
     // Add counts, media, and liked status to posts
-    const currentUserId = String(req.user?.id || req.user?._id || '');
+    const userId = req.user?._id?.toString?.() || req.user?.id?.toString?.();
     const enrichedPosts = posts.map(post => {
       const likeIds = Array.isArray(post.likes)
-        ? post.likes.map(like => String(like._id || like))
+        ? post.likes.map(u => u?._id?.toString?.() || u?.id?.toString?.() || u.toString())
         : [];
+      const liked = userId ? likeIds.includes(userId) : false;
       return {
         ...post,
+        likes: likeIds,
         likesCount: likeIds.length,
         commentsCount: Array.isArray(post.comments) ? post.comments.length : 0,
         shareCount: post.shareCount || 0,
         media: post.media || [],
-        liked: !!currentUserId && likeIds.includes(currentUserId)
+        liked
       };
     });
     
@@ -689,18 +691,20 @@ router.get("/public/:username", async (req, res) => {
     .lean();
     
     // Add counts, media, and liked status to posts
-    const currentUserId = String(req.user?.id || req.user?._id || '');
+    const userId = req.user?._id?.toString?.() || req.user?.id?.toString?.();
     const enrichedPosts = posts.map(post => {
       const likeIds = Array.isArray(post.likes)
-        ? post.likes.map(like => String(like._id || like))
+        ? post.likes.map(u => u?._id?.toString?.() || u?.id?.toString?.() || u.toString())
         : [];
+      const liked = userId ? likeIds.includes(userId) : false;
       return {
         ...post,
+        likes: likeIds,
         likesCount: likeIds.length,
         commentsCount: Array.isArray(post.comments) ? post.comments.length : 0,
         shareCount: post.shareCount || 0,
         media: post.media || [],
-        liked: !!currentUserId && likeIds.includes(currentUserId)
+        liked
       };
     });
 
