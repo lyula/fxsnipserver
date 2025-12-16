@@ -75,10 +75,9 @@ router.get("/profile", requireAuth, async (req, res) => {
     .lean();
     
     // Add counts, media, and liked status to posts
-    const currentUserId = req.user?._id || req.user?.id;
+    const currentUserId = String(req.user?.id || req.user?._id || '');
     const enrichedPosts = posts.map(post => {
-      // Extract like IDs from populated likes array
-      const likeIds = Array.isArray(post.likes) 
+      const likeIds = Array.isArray(post.likes)
         ? post.likes.map(like => String(like._id || like))
         : [];
       return {
@@ -87,7 +86,7 @@ router.get("/profile", requireAuth, async (req, res) => {
         commentsCount: Array.isArray(post.comments) ? post.comments.length : 0,
         shareCount: post.shareCount || 0,
         media: post.media || [],
-        liked: currentUserId ? likeIds.includes(String(currentUserId)) : false
+        liked: currentUserId && likeIds.includes(currentUserId)
       };
     });
     
@@ -690,10 +689,9 @@ router.get("/public/:username", async (req, res) => {
     .lean();
     
     // Add counts, media, and liked status to posts
-    const currentUserId = req.user?._id || req.user?.id;
+    const currentUserId = String(req.user?.id || req.user?._id || '');
     const enrichedPosts = posts.map(post => {
-      // Extract like IDs from populated likes array
-      const likeIds = Array.isArray(post.likes) 
+      const likeIds = Array.isArray(post.likes)
         ? post.likes.map(like => String(like._id || like))
         : [];
       return {
@@ -702,7 +700,7 @@ router.get("/public/:username", async (req, res) => {
         commentsCount: Array.isArray(post.comments) ? post.comments.length : 0,
         shareCount: post.shareCount || 0,
         media: post.media || [],
-        liked: currentUserId ? likeIds.includes(String(currentUserId)) : false
+        liked: currentUserId && likeIds.includes(currentUserId)
       };
     });
 
