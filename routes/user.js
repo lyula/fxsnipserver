@@ -36,20 +36,58 @@ router.get("/profile", requireAuth, async (req, res) => {
       console.warn(`User ${user._id} is missing required fields:`, missingFields);
     }
     
-    // Fetch user's posts (excluding hidden and deleted)
+    // Get pagination params
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = parseInt(req.query.offset) || 0;
+    
+    // Fetch user's posts (excluding hidden and deleted) with full details
     const Post = require("../models/Post");
+    const totalPosts = await Post.countDocuments({ 
+      author: user._id,
+      isHidden: { $ne: true },
+      isDeleted: { $ne: true }
+    });
+    
     const posts = await Post.find({ 
       author: user._id,
       isHidden: { $ne: true },
       isDeleted: { $ne: true }
     })
-    .populate("author", "username verified profile.profileImage")
+    .populate({
+      path: "author",
+      select: "name username verified countryFlag profile"
+    })
+    .populate({
+      path: "likes",
+      select: "username verified profile"
+    })
+    .populate({
+      path: "comments.author",
+      select: "name username verified profile"
+    })
+    .populate({
+      path: "comments.replies.author",
+      select: "name username verified profile"
+    })
     .sort({ createdAt: -1 })
+    .skip(offset)
+    .limit(limit)
     .lean();
+    
+    // Add counts to posts
+    const enrichedPosts = posts.map(post => ({
+      ...post,
+      likesCount: Array.isArray(post.likes) ? post.likes.length : 0,
+      commentsCount: Array.isArray(post.comments) ? post.comments.length : 0,
+      shareCount: post.shareCount || 0
+    }));
     
     res.json({
       ...user.toObject(),
-      posts
+      posts: enrichedPosts,
+      postsCount: totalPosts,
+      hasMore: offset + limit < totalPosts,
+      nextOffset: offset + limit
     });
   } catch (error) {
     console.error("Error fetching profile:", error);
@@ -604,16 +642,52 @@ router.get("/public/:username", async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
     
-    // Fetch user's posts (excluding hidden and deleted)
+    // Get pagination params
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = parseInt(req.query.offset) || 0;
+    
+    // Fetch user's posts (excluding hidden and deleted) with full details
     const Post = require("../models/Post");
+    const totalPosts = await Post.countDocuments({ 
+      author: user._id,
+      isHidden: { $ne: true },
+      isDeleted: { $ne: true }
+    });
+    
     const posts = await Post.find({ 
       author: user._id,
       isHidden: { $ne: true },
       isDeleted: { $ne: true }
     })
-    .populate("author", "username verified profile.profileImage")
+    .populate({
+      path: "author",
+      select: "name username verified countryFlag profile"
+    })
+    .populate({
+      path: "likes",
+      select: "username verified profile"
+    })
+    .populate({
+      path: "comments.author",
+      select: "name username verified profile"
+    })
+    .populate({
+      path: "comments.replies.author",
+      select: "name username verified profile"
+    })
     .sort({ createdAt: -1 })
+    .skip(offset)
+    .limit(limit)
     .lean();
+    
+    // Add counts and media to posts
+    const enrichedPosts = posts.map(post => ({
+      ...post,
+      likesCount: Array.isArray(post.likes) ? post.likes.length : 0,
+      commentsCount: Array.isArray(post.comments) ? post.comments.length : 0,
+      shareCount: post.shareCount || 0,
+      media: post.media || []
+    }));
 
     res.json({
       _id: user._id,
@@ -627,7 +701,10 @@ router.get("/public/:username", async (req, res) => {
       verified: user.verified || false,
       profile: user.profile || {},
       followersHashed: user.followersHashed || [],
-      posts
+      posts: enrichedPosts,
+      postsCount: totalPosts,
+      hasMore: offset + limit < totalPosts,
+      nextOffset: offset + limit
     });
   } catch (error) {
     console.error("Error fetching public profile:", error);
