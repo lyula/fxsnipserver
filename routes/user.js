@@ -86,7 +86,7 @@ router.get("/profile", requireAuth, async (req, res) => {
         commentsCount: Array.isArray(post.comments) ? post.comments.length : 0,
         shareCount: post.shareCount || 0,
         media: post.media || [],
-        liked: currentUserId && likeIds.includes(currentUserId)
+        liked: !!currentUserId && likeIds.includes(currentUserId)
       };
     });
     
@@ -700,7 +700,7 @@ router.get("/public/:username", async (req, res) => {
         commentsCount: Array.isArray(post.comments) ? post.comments.length : 0,
         shareCount: post.shareCount || 0,
         media: post.media || [],
-        liked: currentUserId && likeIds.includes(currentUserId)
+        liked: !!currentUserId && likeIds.includes(currentUserId)
       };
     });
 
