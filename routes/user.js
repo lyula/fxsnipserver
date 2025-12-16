@@ -81,7 +81,6 @@ router.get("/profile", requireAuth, async (req, res) => {
       const likeIds = Array.isArray(post.likes) 
         ? post.likes.map(like => String(like._id || like))
         : [];
-      
       return {
         ...post,
         likesCount: likeIds.length,
@@ -697,7 +696,6 @@ router.get("/public/:username", async (req, res) => {
       const likeIds = Array.isArray(post.likes) 
         ? post.likes.map(like => String(like._id || like))
         : [];
-      
       return {
         ...post,
         likesCount: likeIds.length,
