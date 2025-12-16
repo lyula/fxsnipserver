@@ -74,13 +74,23 @@ router.get("/profile", requireAuth, async (req, res) => {
     .limit(limit)
     .lean();
     
-    // Add counts to posts
-    const enrichedPosts = posts.map(post => ({
-      ...post,
-      likesCount: Array.isArray(post.likes) ? post.likes.length : 0,
-      commentsCount: Array.isArray(post.comments) ? post.comments.length : 0,
-      shareCount: post.shareCount || 0
-    }));
+    // Add counts, media, and liked status to posts
+    const currentUserId = req.user?._id || req.user?.id;
+    const enrichedPosts = posts.map(post => {
+      // Extract like IDs from populated likes array
+      const likeIds = Array.isArray(post.likes) 
+        ? post.likes.map(like => String(like._id || like))
+        : [];
+      
+      return {
+        ...post,
+        likesCount: likeIds.length,
+        commentsCount: Array.isArray(post.comments) ? post.comments.length : 0,
+        shareCount: post.shareCount || 0,
+        media: post.media || [],
+        liked: currentUserId ? likeIds.includes(String(currentUserId)) : false
+      };
+    });
     
     res.json({
       ...user.toObject(),
@@ -681,14 +691,22 @@ router.get("/public/:username", async (req, res) => {
     .lean();
     
     // Add counts, media, and liked status to posts
-    const enrichedPosts = posts.map(post => ({
-      ...post,
-      likesCount: Array.isArray(post.likes) ? post.likes.length : 0,
-      commentsCount: Array.isArray(post.comments) ? post.comments.length : 0,
-      shareCount: post.shareCount || 0,
-      media: post.media || [],
-      liked: req.user ? (Array.isArray(post.likes) && post.likes.some(like => String(like._id) === String(req.user.id))) : false
-    }));
+    const currentUserId = req.user?._id || req.user?.id;
+    const enrichedPosts = posts.map(post => {
+      // Extract like IDs from populated likes array
+      const likeIds = Array.isArray(post.likes) 
+        ? post.likes.map(like => String(like._id || like))
+        : [];
+      
+      return {
+        ...post,
+        likesCount: likeIds.length,
+        commentsCount: Array.isArray(post.comments) ? post.comments.length : 0,
+        shareCount: post.shareCount || 0,
+        media: post.media || [],
+        liked: currentUserId ? likeIds.includes(String(currentUserId)) : false
+      };
+    });
 
     res.json({
       _id: user._id,
