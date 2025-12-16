@@ -18,7 +18,11 @@ async function syncFollowCounts(userId) {
 router.get("/profile", requireAuth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id)
-      .select("name username email country countryFlag verified createdAt profile gender dateOfBirth");
+      .select("name username email country countryFlag verified createdAt profile gender dateOfBirth followers following");
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
     
     // Debug: Check for missing required fields
     const missingFields = [];
@@ -32,7 +36,21 @@ router.get("/profile", requireAuth, async (req, res) => {
       console.warn(`User ${user._id} is missing required fields:`, missingFields);
     }
     
-    res.json(user);
+    // Fetch user's posts (excluding hidden and deleted)
+    const Post = require("../models/Post");
+    const posts = await Post.find({ 
+      author: user._id,
+      isHidden: { $ne: true },
+      isDeleted: { $ne: true }
+    })
+    .populate("author", "username verified profile.profileImage")
+    .sort({ createdAt: -1 })
+    .lean();
+    
+    res.json({
+      ...user.toObject(),
+      posts
+    });
   } catch (error) {
     console.error("Error fetching profile:", error);
     res.status(500).json({ message: "Failed to fetch profile" });
@@ -578,22 +596,43 @@ router.post("/unfollow/:id", requireAuth, async (req, res) => {
 
 // Get public profile by username
 router.get("/public/:username", async (req, res) => {
-  const user = await User.findOne({ username: req.params.username })
-    .select("_id username country countryFlag createdAt followers following verified profile followersHashed");
-  const followingRaw = user.followingRaw || [];
+  try {
+    const user = await User.findOne({ username: req.params.username })
+      .select("_id name username country countryFlag createdAt followers following verified profile followersHashed");
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    // Fetch user's posts (excluding hidden and deleted)
+    const Post = require("../models/Post");
+    const posts = await Post.find({ 
+      author: user._id,
+      isHidden: { $ne: true },
+      isDeleted: { $ne: true }
+    })
+    .populate("author", "username verified profile.profileImage")
+    .sort({ createdAt: -1 })
+    .lean();
 
-  res.json({
-    _id: user._id,
-    username: user.username,
-    country: user.country,
-    countryFlag: user.countryFlag,
-    joined: user.createdAt,
-    followers: user.followers || 0,
-    following: user.following || 0,
-    verified: user.verified || false,
-    profile: user.profile || {},
-    followersHashed: user.followersHashed || [],
-  });
+    res.json({
+      _id: user._id,
+      name: user.name,
+      username: user.username,
+      country: user.country,
+      countryFlag: user.countryFlag,
+      joined: user.createdAt,
+      followers: user.followers || 0,
+      following: user.following || 0,
+      verified: user.verified || false,
+      profile: user.profile || {},
+      followersHashed: user.followersHashed || [],
+      posts
+    });
+  } catch (error) {
+    console.error("Error fetching public profile:", error);
+    res.status(500).json({ message: "Failed to fetch profile" });
+  }
 });
 
 // Followers List

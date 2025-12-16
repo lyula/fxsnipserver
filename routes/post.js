@@ -55,14 +55,18 @@ router.post("/:postId/comments/:commentId/replies", auth, canComment, addReply);
 // Increment post views - using auth middleware and controller function
 router.post('/:id/view', auth, incrementPostViews);
 
-// Get posts by username (public profile)
+// Get posts by username
 router.get("/user/:username", async (req, res) => {
   try {
     const user = await User.findOne({ username: req.params.username });
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    // Find posts where author matches user's _id
-    const posts = await Post.find({ author: user._id }).populate("author", "username verified");
+    // Find posts where author matches user's _id, excluding hidden and deleted posts
+    const posts = await Post.find({ 
+      author: user._id,
+      isHidden: { $ne: true },
+      isDeleted: { $ne: true }
+    }).populate("author", "username verified");
     res.status(200).json(posts);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch user's posts" });
@@ -72,7 +76,11 @@ router.get("/user/:username", async (req, res) => {
 // Get posts by user ID (robust to username changes)
 router.get("/by-userid/:userId", async (req, res) => {
   try {
-    let posts = await Post.find({ author: req.params.userId })
+    let posts = await Post.find({ 
+      author: req.params.userId,
+      isHidden: { $ne: true },
+      isDeleted: { $ne: true }
+    })
       .populate([
         { path: "author", select: "username verified profile.profileImage" },
         { path: "comments.author", select: "username verified profile.profileImage" },
