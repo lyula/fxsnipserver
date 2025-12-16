@@ -83,6 +83,9 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/trading-account", require("./routes/tradingAccount"));
 app.use("/api/trade-journal", require("./routes/tradeJournal"));
 app.use("/api/user-preferences", require("./routes/userPreferences"));
+app.use("/api/report-reasons", require("./routes/reportReason"));
+app.use("/api/post-reports", require("./routes/postReport"));
+app.use("/api/user-restrictions", require("./routes/userRestrictions"));
 app.use(errorHandler);
 app.all('/debug-headers', (req, res) => {
   res.json({ headers: req.headers });

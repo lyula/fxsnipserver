@@ -23,12 +23,29 @@ const userSchema = new mongoose.Schema({
   profile: {
     profileImage: { type: String, default: "" },
     profileImagePublicId: { type: String, default: "" }, // Store Cloudinary public ID
+    coverImage: { type: String, default: "" },
+    coverImagePublicId: { type: String, default: "" }, // Store Cloudinary public ID for cover image
     bio: { type: String, default: "" },
     website: { type: String, default: "" },
     location: { type: String, default: "" },
     // Add more profile fields as needed
   },
   expoPushToken: { type: String, default: "" }, // Expo push notification token
+  // User role and moderation
+  role: { type: String, enum: ['user', 'admin', 'moderator'], default: 'user' },
+  // Activity restrictions (Instagram-like behavior for suspicious activity)
+  restrictions: {
+    canCreatePosts: { type: Boolean, default: true },
+    canLikePosts: { type: Boolean, default: true },
+    canComment: { type: Boolean, default: true },
+    canFollow: { type: Boolean, default: true },
+    canMessage: { type: Boolean, default: true },
+    canShare: { type: Boolean, default: true },
+    restrictedUntil: { type: Date }, // Temporary restriction expiry
+    restrictionReason: { type: String },
+    restrictedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    restrictedAt: { type: Date }
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model("User", userSchema);

@@ -22,29 +22,35 @@ const {
   trackAdClick       // Add ad tracking
 } = require("../controllers/postController");
 const { requireAuth: auth } = require("../middleware/auth");
+const { 
+  canCreatePost, 
+  canLikePost, 
+  canComment, 
+  canShare 
+} = require("../middleware/checkRestrictions");
 const Post = require("../models/Post");
 const User = require("../models/User");
 
-// Create a new post
-router.post("/", auth, createPost);
+// Create a new post (with restriction check)
+router.post("/", auth, canCreatePost, createPost);
 
 // Get all posts
 router.get("/", auth, getPosts);
 
-// Like a post
-router.post("/:postId/like", auth, likePost);
+// Like a post (with restriction check)
+router.post("/:postId/like", auth, canLikePost, likePost);
 
-// Like a comment
-router.post("/:postId/comments/:commentId/like", auth, likeComment); 
+// Like a comment (with restriction check)
+router.post("/:postId/comments/:commentId/like", auth, canLikePost, likeComment); 
 
-// Like a reply
-router.post("/:postId/comments/:commentId/replies/:replyId/like", auth, likeReply); 
+// Like a reply (with restriction check)
+router.post("/:postId/comments/:commentId/replies/:replyId/like", auth, canLikePost, likeReply); 
 
-// Add a comment to a post
-router.post("/:postId/comments", auth, addComment);
+// Add a comment to a post (with restriction check)
+router.post("/:postId/comments", auth, canComment, addComment);
 
-// Add a reply to a comment
-router.post("/:postId/comments/:commentId/replies", auth, addReply);
+// Add a reply to a comment (with restriction check)
+router.post("/:postId/comments/:commentId/replies", auth, canComment, addReply);
 
 // Increment post views - using auth middleware and controller function
 router.post('/:id/view', auth, incrementPostViews);
@@ -139,8 +145,8 @@ router.get("/:postId", async (req, res) => {
   }
 });
 
-// Increment share count for a post (public, no auth required)
-router.post('/:postId/share', incrementShareCount);
+// Increment share count for a post (with auth and restriction check)
+router.post('/:postId/share', auth, canShare, incrementShareCount);
 
 // Ad tracking routes
 router.post('/ads/:adId/impression', auth, trackAdImpression);

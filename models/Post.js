@@ -55,6 +55,13 @@ const PostSchema = new mongoose.Schema(
     shareCount: { type: Number, default: 0 }, // Track number of times post is shared
     editedAt: { type: Date },
     isEdited: { type: Boolean, default: false },
+    // Post reporting and moderation fields
+    reportCount: { type: Number, default: 0 },
+    isHidden: { type: Boolean, default: false }, // Auto-hidden when reportCount >= 15
+    hiddenAt: { type: Date },
+    isDeleted: { type: Boolean, default: false }, // Soft delete by admin
+    deletedAt: { type: Date },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
   },
   { 
     timestamps: true // This adds createdAt and updatedAt automatically

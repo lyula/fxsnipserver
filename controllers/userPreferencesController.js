@@ -1,11 +1,14 @@
 const UserPreferences = require('../models/UserPreferences');
 
+// Helper function to get userId from req.user (handles both _id and id)
+const getUserId = (req) => req.user._id || req.user.id;
+
 /**
  * Get user preferences
  */
 exports.getPreferences = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = getUserId(req);
 
     let preferences = await UserPreferences.findOne({ userId });
 
@@ -33,7 +36,7 @@ exports.getPreferences = async (req, res) => {
  */
 exports.updateTradingPreferences = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = getUserId(req);
     const {
       preferredPairs,
       confluences,
@@ -93,7 +96,7 @@ exports.updateTradingPreferences = async (req, res) => {
  */
 exports.getConfluences = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = getUserId(req);
 
     let preferences = await UserPreferences.findOne({ userId });
     if (!preferences) {
@@ -138,8 +141,21 @@ exports.getConfluences = async (req, res) => {
  */
 exports.addConfluence = async (req, res) => {
   try {
-    const userId = req.user._id;
+    // Handle both _id and id from JWT token
+    const userId = req.user._id || req.user.id;
     const { name, description, category } = req.body;
+
+    console.log('=== ADD CONFLUENCE REQUEST ===');
+    console.log('req.user:', req.user);
+    console.log('User ID:', userId);
+    console.log('Request body:', { name, description, category });
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User ID not found in token',
+      });
+    }
 
     if (!name) {
       return res.status(400).json({
@@ -149,7 +165,10 @@ exports.addConfluence = async (req, res) => {
     }
 
     let preferences = await UserPreferences.findOne({ userId });
+    console.log('Found preferences:', preferences ? 'YES' : 'NO');
+
     if (!preferences) {
+      console.log('Creating new preferences document');
       preferences = new UserPreferences({ 
         userId,
         tradingPreferences: {
@@ -163,6 +182,7 @@ exports.addConfluence = async (req, res) => {
 
     // Initialize tradingPreferences if it doesn't exist (for old documents)
     if (!preferences.tradingPreferences) {
+      console.log('Initializing tradingPreferences for existing document');
       preferences.tradingPreferences = {
         preferredPairs: [],
         confluences: [],
@@ -171,25 +191,39 @@ exports.addConfluence = async (req, res) => {
       };
     }
 
+    // Ensure confluences array exists
+    if (!preferences.tradingPreferences.confluences) {
+      console.log('Initializing confluences array');
+      preferences.tradingPreferences.confluences = [];
+    }
+
+    console.log('Current confluences count:', preferences.tradingPreferences.confluences.length);
+
     // Check if confluence already exists
-    const exists = preferences.tradingPreferences.confluences && preferences.tradingPreferences.confluences.some(
-      conf => conf.name.toLowerCase() === name.toLowerCase()
+    const exists = preferences.tradingPreferences.confluences.some(
+      conf => conf.name && conf.name.toLowerCase() === name.toLowerCase()
     );
 
     if (exists) {
+      console.log('Confluence already exists with name:', name);
       return res.status(400).json({
         success: false,
         message: 'Confluence with this name already exists',
       });
     }
 
-    preferences.tradingPreferences.confluences.push({
+    const newConfluence = {
       name,
       description: description || '',
       category: category || 'technical',
-    });
+    };
 
+    console.log('Adding confluence:', newConfluence);
+    preferences.tradingPreferences.confluences.push(newConfluence);
+
+    console.log('Saving preferences...');
     await preferences.save();
+    console.log('Preferences saved successfully');
 
     res.status(201).json({
       success: true,
@@ -197,13 +231,17 @@ exports.addConfluence = async (req, res) => {
       preferences,
     });
   } catch (error) {
-    console.error('Add confluence error:', error);
-    console.error('Error details:', error.message);
+    console.error('=== ADD CONFLUENCE ERROR ===');
+    console.error('Error:', error);
+    console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
+    console.error('Error name:', error.name);
+    
     res.status(500).json({
       success: false,
       message: 'Failed to add confluence',
       error: error.message,
+      errorName: error.name,
     });
   }
 };
@@ -213,7 +251,7 @@ exports.addConfluence = async (req, res) => {
  */
 exports.updateConfluence = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = getUserId(req);
     const { confluenceId } = req.params;
     const { name, description, category } = req.body;
 
@@ -286,7 +324,7 @@ exports.updateConfluence = async (req, res) => {
  */
 exports.removeConfluence = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = getUserId(req);
     const { confluenceId } = req.params;
 
     const preferences = await UserPreferences.findOne({ userId });
@@ -331,7 +369,7 @@ exports.removeConfluence = async (req, res) => {
  */
 exports.addPreferredPair = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = getUserId(req);
     const { pair } = req.body;
 
     if (!pair) {
@@ -375,7 +413,7 @@ exports.addPreferredPair = async (req, res) => {
  */
 exports.removePreferredPair = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = getUserId(req);
     const { pair } = req.params;
 
     const preferences = await UserPreferences.findOne({ userId });
@@ -410,7 +448,7 @@ exports.removePreferredPair = async (req, res) => {
  */
 exports.updateDashboardSettings = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = getUserId(req);
     const {
       defaultTimeframe,
       primaryAccountId,
@@ -470,7 +508,7 @@ exports.updateDashboardSettings = async (req, res) => {
  */
 exports.updateNotificationPreferences = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = getUserId(req);
     const {
       emailOnTradeClose,
       emailOnDailyReport,
@@ -516,3 +554,4 @@ exports.updateNotificationPreferences = async (req, res) => {
     });
   }
 };
+

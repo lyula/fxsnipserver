@@ -98,7 +98,10 @@ router.put("/profile", requireAuth, async (req, res) => {
         ...profile,
         // If profileImage and profileImagePublicId are provided, update them
         ...(profile.profileImage && { profileImage: profile.profileImage }),
-        ...(profile.profileImagePublicId && { profileImagePublicId: profile.profileImagePublicId })
+        ...(profile.profileImagePublicId && { profileImagePublicId: profile.profileImagePublicId }),
+        // If coverImage and coverImagePublicId are provided, update them
+        ...(profile.coverImage && { coverImage: profile.coverImage }),
+        ...(profile.coverImagePublicId && { coverImagePublicId: profile.coverImagePublicId })
       };
     }
     await user.save();

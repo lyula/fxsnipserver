@@ -296,7 +296,11 @@ exports.getPosts = async (req, res) => {
 
     console.log('🎯 [getPosts] Request params:', { limit, offset, scrollDirection, refreshFeed, loadFresh });
 
-    let query = {}; // Start with empty query to get all posts
+    // Filter out hidden and deleted posts from timeline
+    let query = { 
+      isHidden: { $ne: true },
+      isDeleted: { $ne: true }
+    };
     let sortOptions = { createdAt: -1 };
 
     // FRESH CONTENT LOGIC: Only apply date filtering when specifically requested
@@ -310,10 +314,8 @@ exports.getPosts = async (req, res) => {
       
       // Priority 1: Posts from last 4 hours (very fresh)
       // Priority 2: Posts from today that user might have missed
-      query = {
-        createdAt: { 
-          $gte: startOfToday // All posts from today
-        }
+      query.createdAt = { 
+        $gte: startOfToday // All posts from today
       };
       
       // Enhanced sort for fresh content
