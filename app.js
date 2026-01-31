@@ -22,7 +22,8 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
   'http://localhost:5173',
   'https://journalzye-plc.vercel.app',
-  'http://tradewall.vercel.app',
+  'https://tradewall.vercel.app',
+  'htts://tradewall.live',
   'http://localhost:8080',
   'http://127.0.0.1:8080',
   'http://localhost:8081', // React Native Metro
