@@ -24,6 +24,7 @@ const allowedOrigins = [
   'https://journalzye-plc.vercel.app',
   'https://tradewall.vercel.app',
   'https://tradewall.live',
+  'https://www.tradewall.live',
   'http://localhost:8080',
   'http://127.0.0.1:8080',
   'http://localhost:8081', // React Native Metro
