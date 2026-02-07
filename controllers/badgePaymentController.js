@@ -72,12 +72,12 @@ exports.createBadgePayment = async (req, res) => {
     }
 };
 
-// Find all completed badge payments where periodEnd has passed
+// Find all completed badge payments where periodEnd has passed (exclude null/undefined periodEnd)
 exports.expireOldBadgePayments = async () => {
   const expiredBadgePayments = await BadgePayment.find({
     status: 'completed',
     type: 'verified_badge',
-    periodEnd: { $lt: new Date() }
+    periodEnd: { $exists: true, $lt: new Date() }
   });
   for (const badgePayment of expiredBadgePayments) {
     // Check if user has any other active/completed badge payment with periodEnd in the future
@@ -148,6 +148,8 @@ exports.initiateSTKPush = async (req, res) => {
             console.error('PayHero API error:', apiErr.response?.data || apiErr.message);
             return res.status(502).json({ error: 'PayHero API error', details: apiErr.response?.data || apiErr.message });
         }
+        // Store billingType so PayHero callback can set correct periodEnd (30 days monthly, 365 days annual)
+        const normalizedBillingType = (billingType === 'annual') ? 'annual' : 'monthly';
         // Save attempt in DB (status: pending); return _id so client can poll for real result
         const badgePayment = await BadgePayment.create({
             user: userId,
@@ -157,7 +159,7 @@ exports.initiateSTKPush = async (req, res) => {
             currency: 'KES',
             paymentMethod: 'mpesa',
             status: 'pending',
-            methodDetails: { phone_number },
+            methodDetails: { phone_number, billingType: normalizedBillingType },
             transactionId: response.data.CheckoutRequestID,
             rawResponse: response.data,
             serviceDetails: { external_reference },
@@ -177,11 +179,23 @@ exports.initiateSTKPush = async (req, res) => {
 exports.payheroCallback = async (req, res) => {
     try {
         const data = req.body.response || req.body;
-        // Find and update the payment by transactionId or external_reference
+        const transactionId = data.CheckoutRequestID || data.CheckoutRequestId || data.transactionId;
+        const paymentDoc = await BadgePayment.findOne({ transactionId });
+        if (!paymentDoc) {
+            console.warn('PayHero callback: no payment found for transactionId:', transactionId);
+            return res.json({ success: true });
+        }
+        // Get billingType from frontend-stored data: monthly = 30 days, annual = 365 days
+        const billingType = (paymentDoc.methodDetails?.billingType === 'annual') ? 'annual' : 'monthly';
+        // Find and update the payment by transactionId
         let update = {
             status: data.Status === 'Success' ? 'completed' : 'failed',
             rawResponse: data,
-            methodDetails: { MpesaReceiptNumber: data.MpesaReceiptNumber, ResultDesc: data.ResultDesc },
+            methodDetails: {
+                ...(paymentDoc.methodDetails && typeof paymentDoc.methodDetails === 'object' ? paymentDoc.methodDetails : {}),
+                MpesaReceiptNumber: data.MpesaReceiptNumber,
+                ResultDesc: data.ResultDesc
+            },
             mpesaCode: data.MpesaReceiptNumber || null, // Store M-Pesa code at top level
             serviceDetails: { external_reference: data.ExternalReference || data.external_reference },
             externalReference: data.ExternalReference || data.external_reference || null
@@ -189,19 +203,10 @@ exports.payheroCallback = async (req, res) => {
         // Only set periodStart and periodEnd if payment is successful
         if (data.Status === 'Success') {
             const now = new Date();
-            let periodStart = now;
-            let periodEnd;
-            // Try to get billingType from payment or fallback to 30 days
-            const paymentDoc = await BadgePayment.findOne({ transactionId: data.CheckoutRequestID });
-            let billingType = 'monthly';
-            if (paymentDoc && paymentDoc.methodDetails && paymentDoc.methodDetails.billingType) {
-                billingType = paymentDoc.methodDetails.billingType;
-            }
-            if (billingType === 'annual') {
-                periodEnd = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
-            } else {
-                periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-            }
+            const periodStart = now;
+            const periodEnd = billingType === 'annual'
+                ? new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)  // 365 days
+                : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);   // 30 days
             update.periodStart = periodStart;
             update.periodEnd = periodEnd;
         } else {
@@ -209,7 +214,7 @@ exports.payheroCallback = async (req, res) => {
             update.periodEnd = undefined;
         }
         const payment = await BadgePayment.findOneAndUpdate(
-            { transactionId: data.CheckoutRequestID },
+            { transactionId },
             update,
             { new: true }
         );
