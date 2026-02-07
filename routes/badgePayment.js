@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth } = require("../middleware/auth"); // Add auth middleware
 const badgePaymentController = require('../controllers/badgePaymentController');
-const { createBadgePayment, initiateSTKPush, payheroCallback, getLatestBadgePayment, getAllBadgePayments, getAllBadgePaymentsAdmin } = badgePaymentController;
+const { createBadgePayment, initiateSTKPush, payheroCallback, getLatestBadgePayment, getBadgePaymentStatus, getAllBadgePayments, getAllBadgePaymentsAdmin } = badgePaymentController;
 
 // Create a badge payment
 router.post('/', requireAuth, createBadgePayment);
@@ -15,6 +15,9 @@ router.post('/payhero-callback', payheroCallback);
 
 // Get latest badge payment for current user
 router.get('/latest', requireAuth, getLatestBadgePayment);
+
+// Get payment status by paymentId (for polling after STK; use query paymentId=)
+router.get('/status', requireAuth, getBadgePaymentStatus);
 
 // Get all badge payments for current user (history)
 router.get('/my', requireAuth, getAllBadgePayments);

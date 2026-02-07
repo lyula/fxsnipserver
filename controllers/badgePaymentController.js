@@ -148,8 +148,8 @@ exports.initiateSTKPush = async (req, res) => {
             console.error('PayHero API error:', apiErr.response?.data || apiErr.message);
             return res.status(502).json({ error: 'PayHero API error', details: apiErr.response?.data || apiErr.message });
         }
-        // Save attempt in DB (status: pending)
-        await BadgePayment.create({
+        // Save attempt in DB (status: pending); return _id so client can poll for real result
+        const badgePayment = await BadgePayment.create({
             user: userId,
             username, // Store username as top-level field
             type: 'verified_badge',
@@ -165,7 +165,8 @@ exports.initiateSTKPush = async (req, res) => {
             externalReference: external_reference // Add for easier viewing
             // Do NOT set periodStart or periodEnd here
         });
-        res.json(response.data);
+        // Return PayHero payload plus _id so UI can poll GET /badge-payments/:id for final status
+        res.json({ ...response.data, _id: badgePayment._id.toString() });
     } catch (err) {
         console.error('STK push error:', err);
         res.status(500).json({ error: err.message });
@@ -265,6 +266,27 @@ exports.payheroCallback = async (req, res) => {
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
+};
+
+// Get payment status by paymentId (for polling after STK push; same shape as journal-payments/status)
+exports.getBadgePaymentStatus = async (req, res) => {
+  try {
+    const { paymentId } = req.query;
+    if (!paymentId) return res.status(400).json({ error: 'paymentId is required' });
+    const payment = await BadgePayment.findById(paymentId).populate('user', 'username');
+    if (!payment) return res.status(404).json({ error: 'Payment not found' });
+    const userId = req.user && req.user.id;
+    const paymentUserId = payment.user && (payment.user._id ? payment.user._id.toString() : payment.user.toString());
+    if (paymentUserId !== userId) {
+      return res.status(403).json({ error: 'Not authorized to view this payment' });
+    }
+    const failureReason = payment.status === 'failed'
+      ? (payment.methodDetails?.ResultDesc || payment.rawResponse?.ResultDesc || 'Payment failed or cancelled.')
+      : null;
+    return res.json({ status: payment.status, payment, failureReason });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
 
 // Get latest badge payment for current user
