@@ -1,40 +1,32 @@
 const TradeJournal = require('../models/TradeJournal');
 const TradingAccount = require('../models/TradingAccount');
+const { calcPips } = require('../utils/pips');
+
+const DEFAULT_PAGE_SIZE = 20;
+const MAX_PAGE_SIZE = 100;
 
 /**
- * Get all trades for a user with filters
- * NOTE: Fetches from DATABASE only - no MetaAPI calls
- * Trades are synced to DB via POST /api/trading-accounts/:accountId/sync
+ * Get trades for a user with filters, pagination, pips calculated, and balanceAfter for closed trades.
  */
 exports.getTrades = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { accountId, status, timeframe, pair, session } = req.query;
+    const { accountId, status, timeframe, pair, session, page, limit } = req.query;
 
-    // Build filter
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(limit, 10) || DEFAULT_PAGE_SIZE));
+    const skip = (pageNum - 1) * limitNum;
+
     const filter = { userId };
 
-    if (accountId) {
-      filter.accountId = accountId;
-    }
+    if (accountId) filter.accountId = accountId;
+    if (status) filter.status = status;
+    if (pair) filter.pair = pair;
+    if (session) filter.session = session;
 
-    if (status) {
-      filter.status = status; // 'open', 'closed', 'pending'
-    }
-
-    if (pair) {
-      filter.pair = pair;
-    }
-
-    if (session) {
-      filter.session = session;
-    }
-
-    // Time-based filters
     if (timeframe) {
       const now = new Date();
       let startDate;
-
       switch (timeframe) {
         case 'today':
           startDate = new Date(now.setHours(0, 0, 0, 0));
@@ -57,19 +49,64 @@ exports.getTrades = async (req, res) => {
         default:
           startDate = null;
       }
+      if (startDate) filter.openTime = { $gte: startDate };
+    }
 
-      if (startDate) {
-        filter.openTime = { $gte: startDate };
+    const [total, trades] = await Promise.all([
+      TradeJournal.countDocuments(filter),
+      TradeJournal.find(filter)
+        .populate('accountId', 'accountName platform')
+        .sort({ openTime: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+    ]);
+
+    const accountIds = [...new Set(trades.map(t => t.accountId && t.accountId._id).filter(Boolean))];
+    const accounts = await TradingAccount.find({ _id: { $in: accountIds } }).lean();
+    const accountMap = {};
+    accounts.forEach(a => { accountMap[a._id.toString()] = a; });
+
+    const balanceAfterByTradeId = {};
+    for (const accId of accountIds) {
+      const acc = accountMap[accId.toString()];
+      const currentBalance = (acc && acc.stats && typeof acc.stats.balance === 'number') ? acc.stats.balance : null;
+      if (currentBalance === null) continue;
+      const closed = await TradeJournal.find({ accountId: accId, status: 'closed' })
+        .sort({ closeTime: 1 })
+        .select('_id profit commission swap closeTime')
+        .lean();
+      const totalPL = closed.reduce((sum, t) => sum + (t.profit || 0) + (t.commission || 0) + (t.swap || 0), 0);
+      let running = currentBalance - totalPL;
+      for (const t of closed) {
+        running += (t.profit || 0) + (t.commission || 0) + (t.swap || 0);
+        balanceAfterByTradeId[t._id.toString()] = Math.round(running * 100) / 100;
       }
     }
 
-    const trades = await TradeJournal.find(filter)
-      .populate('accountId', 'accountName platform')
-      .sort({ openTime: -1 });
+    const totalPages = Math.ceil(total / limitNum);
+
+    for (const t of trades) {
+      if (t.closePrice != null && t.openPrice != null && t.pair) {
+        t.pips = calcPips(t.type, t.openPrice, t.closePrice, t.pair);
+      } else if (t.pips == null) {
+        t.pips = 0;
+      }
+      if (t.status === 'closed' && t._id) {
+        const bid = t._id.toString();
+        if (balanceAfterByTradeId[bid] != null) {
+          t.balanceAfter = balanceAfterByTradeId[bid];
+        }
+      }
+    }
 
     res.status(200).json({
       success: true,
       count: trades.length,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages,
       trades,
     });
   } catch (error) {
@@ -82,7 +119,7 @@ exports.getTrades = async (req, res) => {
 };
 
 /**
- * Get single trade details
+ * Get single trade details (with pips and balanceAfter when applicable)
  */
 exports.getTrade = async (req, res) => {
   try {
@@ -90,13 +127,41 @@ exports.getTrade = async (req, res) => {
     const { tradeId } = req.params;
 
     const trade = await TradeJournal.findOne({ _id: tradeId, userId })
-      .populate('accountId', 'accountName platform broker');
+      .populate('accountId', 'accountName platform broker')
+      .lean();
 
     if (!trade) {
       return res.status(404).json({
         success: false,
         message: 'Trade not found',
       });
+    }
+
+    if (trade.closePrice != null && trade.openPrice != null && trade.pair) {
+      trade.pips = calcPips(trade.type, trade.openPrice, trade.closePrice, trade.pair);
+    } else if (trade.pips == null) {
+      trade.pips = 0;
+    }
+
+    if (trade.status === 'closed' && trade.accountId) {
+      const accId = trade.accountId._id || trade.accountId;
+      const account = await TradingAccount.findById(accId).lean();
+      const currentBalance = (account && account.stats && typeof account.stats.balance === 'number') ? account.stats.balance : null;
+      if (currentBalance !== null) {
+        const closed = await TradeJournal.find({ accountId: accId, status: 'closed' })
+          .sort({ closeTime: 1 })
+          .select('_id profit commission swap')
+          .lean();
+        const totalPL = closed.reduce((sum, t) => sum + (t.profit || 0) + (t.commission || 0) + (t.swap || 0), 0);
+        let running = currentBalance - totalPL;
+        for (const t of closed) {
+          running += (t.profit || 0) + (t.commission || 0) + (t.swap || 0);
+          if (t._id.toString() === tradeId) {
+            trade.balanceAfter = Math.round(running * 100) / 100;
+            break;
+          }
+        }
+      }
     }
 
     res.status(200).json({

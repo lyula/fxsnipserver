@@ -1,6 +1,7 @@
 const TradingAccount = require('../models/TradingAccount');
 const TradeJournal = require('../models/TradeJournal');
 const EAApiKey = require('../models/EAApiKey');
+const { calcPips } = require('../utils/pips');
 
 const MAX_TRADES_PER_REQUEST = 500;
 
@@ -34,7 +35,7 @@ exports.pushTrades = async (req, res) => {
     const accountId = keyDoc.accountId;
     const userId = keyDoc.userId;
 
-    const { platform, accountLogin, server, trades } = req.body;
+    const { platform, accountLogin, server, trades, balance, equity } = req.body;
 
     if (!platform || !accountLogin || !server) {
       return res.status(400).json({
@@ -125,13 +126,18 @@ exports.pushTrades = async (req, res) => {
         duration = t.duration;
       }
 
+      const pairStr = String(t.pair);
+      const pipsValue = typeof t.pips === 'number' && t.pips !== 0
+        ? t.pips
+        : (closePrice != null ? calcPips(type, t.openPrice, closePrice, pairStr) : 0);
+
       const payload = {
         userId,
         accountId,
         ticket,
         positionId,
         type,
-        pair: String(t.pair),
+        pair: pairStr,
         openPrice: t.openPrice,
         closePrice,
         volume: t.volume,
@@ -145,7 +151,7 @@ exports.pushTrades = async (req, res) => {
         takeProfit,
         status,
         outcome,
-        pips: typeof t.pips === 'number' ? t.pips : 0,
+        pips: pipsValue,
         syncedFromEA: true,
         lastSyncedAt: new Date(),
       };
@@ -164,9 +170,16 @@ exports.pushTrades = async (req, res) => {
       results.accepted++;
     }
 
+    const accountUpdate = { lastSyncedAt: new Date() };
+    if (typeof balance === 'number') {
+      accountUpdate['stats.balance'] = balance;
+    }
+    if (typeof equity === 'number') {
+      accountUpdate['stats.equity'] = equity;
+    }
     await TradingAccount.updateOne(
       { _id: accountId },
-      { $set: { lastSyncedAt: new Date() } }
+      { $set: accountUpdate }
     );
 
     if (keyDoc._id) {

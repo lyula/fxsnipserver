@@ -180,8 +180,11 @@ void DoSync()
       return;
    }
 
+   double balance = AccountInfoDouble(ACCOUNT_BALANCE);
+   double equity  = AccountInfoDouble(ACCOUNT_EQUITY);
    string body = "{\"platform\":\"" + platform + "\",\"accountLogin\":\"" + JsonEscape(login) +
-      "\",\"server\":\"" + JsonEscape(server) + "\",\"trades\":[" + trades + "]}";
+      "\",\"server\":\"" + JsonEscape(server) + "\",\"balance\":" + DoubleToString(balance, 2) +
+      ",\"equity\":" + DoubleToString(equity, 2) + ",\"trades\":[" + trades + "]}";
 
    string url = InpBaseUrl;
    if(StringFind(url, "http") != 0) url = "https://" + url;

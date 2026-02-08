@@ -80,12 +80,21 @@ Frontend should use one base URL (e.g. from env `VITE_API_URL`): `${base}/api/..
 }
 ```
 - **Required per trade:** `ticket`, `type` (buy/sell), `pair`, `openPrice`, `volume`, `openTime`, `status` (open/closed/pending). Optional: `positionId`, `closePrice`, `closeTime`, `profit`, `commission`, `swap`, `stopLoss`, `takeProfit`.
+- **Optional in body:** `balance`, `equity` (numbers). If sent, the backend stores them on the account so “balance after each trade” can be returned in the journal. The EAs send these automatically.
 - **Response 200:** `{ "success": true, "accepted", "updated", "created", "errors": [] }`. **401** = invalid/revoked key. **400** = body invalid or `accountLogin`/`server`/`platform` don’t match the key’s account. **429** = rate limit (60/min per key).
 
-### 3.5 Other
+### 3.5 Trade journal (GET /api/trade-journal)
+
+- **Query:** `page` (default 1), `limit` (default 20, max 100), and existing filters: `accountId`, `status`, `timeframe`, `pair`, `session`.
+- **Response:** `{ "success": true, "count", "total", "page", "limit", "totalPages", "trades": [...] }`. Each trade includes:
+  - **pips** — calculated from open/close (Buy: (close−open)/pipSize, Sell: (open−close)/pipSize). JPY pairs use pip size 0.01, others 0.0001.
+  - **balanceAfter** — account balance after that closed trade (only when the account has a stored balance, e.g. from EA push with `balance`).
+- Pagination: 20 records per page by default; use `?page=2` or `?limit=20&page=1`.
+
+### 3.6 Other
 
 - **GET /api/trading-account** — all accounts; EA accounts have `source: "ea"`. Do not call **POST /api/trading-account/:accountId/sync** for EA accounts (returns 400).
-- **GET /api/trade-journal** — includes EA-synced trades with `syncedFromEA: true`. Backend blocks deletion of those trades.
+- Trades from the journal include `syncedFromEA: true` where applicable; deletion of EA-synced trades is blocked.
 
 ---
 
