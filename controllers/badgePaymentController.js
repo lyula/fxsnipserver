@@ -72,26 +72,23 @@ exports.createBadgePayment = async (req, res) => {
     }
 };
 
-// Find all completed badge payments where periodEnd has passed (exclude null/undefined periodEnd)
+// Sync User.verified with badge payment state: true if any payment has periodEnd in future, false otherwise
 exports.expireOldBadgePayments = async () => {
-  const expiredBadgePayments = await BadgePayment.find({
+  const now = new Date();
+  // Get distinct users who have completed verified_badge payments
+  const userIds = await BadgePayment.distinct('user', {
     status: 'completed',
-    type: 'verified_badge',
-    periodEnd: { $exists: true, $lt: new Date() }
+    type: 'verified_badge'
   });
-  for (const badgePayment of expiredBadgePayments) {
-    // Check if user has any other active/completed badge payment with periodEnd in the future
-    const activeCount = await BadgePayment.countDocuments({
-      user: badgePayment.user,
+  for (const userId of userIds) {
+    // Does this user have ANY completed badge payment with periodEnd in the future?
+    const hasActiveBadge = await BadgePayment.exists({
+      user: userId,
       status: 'completed',
       type: 'verified_badge',
-      periodEnd: { $gt: new Date() }
+      periodEnd: { $exists: true, $gt: now }
     });
-    if (activeCount === 0) {
-      await User.findByIdAndUpdate(badgePayment.user, { verified: false });
-    }
-    // Optionally, mark payment as expired
-    // await BadgePayment.findByIdAndUpdate(badgePayment._id, { status: 'expired' });
+    await User.findByIdAndUpdate(userId, { verified: !!hasActiveBadge });
   }
 };
 
