@@ -8,6 +8,8 @@
 #property version   "1.00"
 #property strict
 
+// These are normal input variables so MetaTrader saves them with the chart.
+// After entering the API key and Base URL, save the chart (Ctrl+S) so they persist.
 input string InpApiKey     = "";           // API key (from journal app)
 input string InpBaseUrl    = "https://fxsnipserver-7uw7.onrender.com"; // Base URL (no trailing slash)
 input int    InpSyncSeconds= 60;           // Sync interval (seconds)

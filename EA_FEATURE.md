@@ -124,6 +124,7 @@ Frontend should use one base URL (e.g. from env `VITE_API_URL`): `${base}/api/..
    - In MetaTrader: **File → Open Data Folder** → **MQL4/Experts** (MT4) or **MQL5/Experts** (MT5) → paste the downloaded file.  
    - Restart MetaTrader or refresh Navigator. Right‑click the EA → **Modify** → **Allow WebRequest for listed URL** → add: `https://fxsnipserver-7uw7.onrender.com`  
    - Drag the EA onto a chart. In inputs: paste **API key** and **Base URL** → OK.  
+   - **Save the chart (Ctrl+S)** so the API key and Base URL are stored with the chart (do not remove the EA from the chart).  
    - Trades will sync automatically to your journal.
 
 ---
@@ -142,5 +143,6 @@ Frontend should use one base URL (e.g. from env `VITE_API_URL`): `${base}/api/..
 - **Location in repo:** `server/ea/`
 - **Files:** `TradeJournalSync.mq4` (MT4), `TradeJournalSync.mq5` (MT5) — both are present in the repo and are served by the backend.
 - **Served at:** `https://fxsnipserver-7uw7.onrender.com/ea/TradeJournalSync.mq4` and `.../ea/TradeJournalSync.mq5` (same base URL as API).
+- **API key and Base URL:** Declared as normal `input string` variables in the EA so MetaTrader saves them with the chart. For the values to persist, the user must **save the chart (Ctrl+S)** after entering them and keep the EA on the chart.
 
 Users do not run the EA in the browser; they download the file, install it in MetaTrader, allow WebRequest for the base URL, and enter the API key and base URL in the EA inputs.
