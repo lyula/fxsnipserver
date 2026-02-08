@@ -3,11 +3,12 @@ const mongoose = require('mongoose');
 const TradingAccountSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   accountName: { type: String, required: true }, // User-friendly name
-  metaApiAccountId: { type: String, required: true, unique: true }, // MetaAPI account ID
+  metaApiAccountId: { type: String, sparse: true, unique: true }, // MetaAPI account ID; null for EA-linked accounts
   platform: { type: String, enum: ['mt4', 'mt5'], required: true },
   broker: { type: String },
-  login: { type: String }, // Trading account login
+  login: { type: String }, // Trading account login (MT account number)
   server: { type: String }, // Broker server
+  source: { type: String, enum: ['metaapi', 'ea'], default: 'metaapi' }, // 'ea' = Synced via EA
   
   // Connection status
   connectionState: { 

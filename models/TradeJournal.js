@@ -86,6 +86,7 @@ const TradeJournalSchema = new mongoose.Schema({
   
   // Sync status
   syncedFromMetaAPI: { type: Boolean, default: false },
+  syncedFromEA: { type: Boolean, default: false },
   lastSyncedAt: { type: Date },
   
 }, { timestamps: true });
@@ -95,5 +96,6 @@ TradeJournalSchema.index({ userId: 1, openTime: -1 });
 TradeJournalSchema.index({ accountId: 1, status: 1 });
 TradeJournalSchema.index({ userId: 1, pair: 1 });
 TradeJournalSchema.index({ positionId: 1 });
+TradeJournalSchema.index({ accountId: 1, ticket: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model('TradeJournal', TradeJournalSchema);

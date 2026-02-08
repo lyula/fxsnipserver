@@ -1,8 +1,73 @@
 const TradingAccount = require('../models/TradingAccount');
+const EAApiKey = require('../models/EAApiKey');
 const metaApiService = require('../services/metaApiService');
+const { generateKey, hashKey, getKeyPrefix } = EAApiKey;
 
 /**
- * Connect a new trading account
+ * Connect a new EA-linked trading account (no MetaAPI, no password).
+ * Creates account with source: 'ea'. User then gets an API key for this account.
+ */
+exports.connectEAAccount = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { accountName, login, server, platform, broker } = req.body;
+
+    if (!accountName || !login || !server || !platform) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: accountName, login, server, platform',
+      });
+    }
+    const platformNorm = platform.toLowerCase();
+    if (!['mt4', 'mt5'].includes(platformNorm)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Platform must be mt4 or mt5',
+      });
+    }
+
+    const existing = await TradingAccount.findOne({
+      userId,
+      source: 'ea',
+      login: String(login),
+      server: String(server),
+      platform: platformNorm,
+    });
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message: 'An EA account with this login, server and platform already exists',
+      });
+    }
+
+    const account = await TradingAccount.create({
+      userId,
+      accountName: accountName.trim(),
+      platform: platformNorm,
+      login: String(login),
+      server: String(server),
+      broker: broker ? String(broker).trim() : undefined,
+      source: 'ea',
+      connectionState: 'DISCONNECTED',
+      isActive: true,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'EA account created. Get the API key for this account to use in your EA.',
+      account,
+    });
+  } catch (error) {
+    console.error('Connect EA account error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to create EA account',
+    });
+  }
+};
+
+/**
+ * Connect a new trading account (MetaAPI)
  */
 exports.connectAccount = async (req, res) => {
   try {
@@ -99,6 +164,112 @@ exports.getAccount = async (req, res) => {
 };
 
 /**
+ * Get EA API key for an EA-linked account. If none exists, create one and return plain key once.
+ * Only for accounts with source === 'ea'.
+ */
+exports.getEAApiKey = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { accountId } = req.params;
+
+    const account = await TradingAccount.findOne({ _id: accountId, userId });
+    if (!account) {
+      return res.status(404).json({ success: false, message: 'Account not found' });
+    }
+    if (account.source !== 'ea') {
+      return res.status(400).json({
+        success: false,
+        message: 'EA API key is only available for EA-linked accounts',
+      });
+    }
+
+    let keyDoc = await EAApiKey.findOne({ accountId });
+    if (!keyDoc) {
+      const plainKey = generateKey();
+      keyDoc = await EAApiKey.create({
+        userId,
+        accountId: account._id,
+        keyHash: hashKey(plainKey),
+        keyPrefix: getKeyPrefix(plainKey),
+      });
+      return res.status(200).json({
+        success: true,
+        apiKey: plainKey,
+        key: {
+          id: keyDoc._id,
+          keyPrefix: keyDoc.keyPrefix,
+          lastUsedAt: keyDoc.lastUsedAt || null,
+          createdAt: keyDoc.createdAt,
+        },
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      key: {
+        id: keyDoc._id,
+        keyPrefix: keyDoc.keyPrefix,
+        lastUsedAt: keyDoc.lastUsedAt || null,
+        createdAt: keyDoc.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error('Get EA API key error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get EA API key',
+    });
+  }
+};
+
+/**
+ * Regenerate EA API key for an EA-linked account. Returns new plain key once.
+ */
+exports.regenerateEAApiKey = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { accountId } = req.params;
+
+    const account = await TradingAccount.findOne({ _id: accountId, userId });
+    if (!account) {
+      return res.status(404).json({ success: false, message: 'Account not found' });
+    }
+    if (account.source !== 'ea') {
+      return res.status(400).json({
+        success: false,
+        message: 'EA API key is only available for EA-linked accounts',
+      });
+    }
+
+    await EAApiKey.deleteOne({ accountId });
+    const plainKey = generateKey();
+    const keyDoc = await EAApiKey.create({
+      userId,
+      accountId: account._id,
+      keyHash: hashKey(plainKey),
+      keyPrefix: getKeyPrefix(plainKey),
+    });
+
+    res.status(200).json({
+      success: true,
+      apiKey: plainKey,
+      key: {
+        id: keyDoc._id,
+        keyPrefix: keyDoc.keyPrefix,
+        lastUsedAt: null,
+        createdAt: keyDoc.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error('Regenerate EA API key error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to regenerate EA API key',
+    });
+  }
+};
+
+/**
  * Sync account data from MetaAPI
  */
 exports.syncAccount = async (req, res) => {
@@ -112,6 +283,12 @@ exports.syncAccount = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Account not found',
+      });
+    }
+    if (account.source === 'ea') {
+      return res.status(400).json({
+        success: false,
+        message: 'Sync is not available for EA-linked accounts; trades are pushed by the EA.',
       });
     }
 
@@ -218,8 +395,10 @@ exports.disconnectAccount = async (req, res) => {
       });
     }
 
-    // Disconnect via MetaAPI
-    await metaApiService.disconnectAccount(accountId);
+    // Disconnect via MetaAPI (only for MetaAPI-linked accounts)
+    if (account.source !== 'ea') {
+      await metaApiService.disconnectAccount(accountId);
+    }
 
     res.status(200).json({
       success: true,
@@ -250,8 +429,8 @@ exports.deleteAccount = async (req, res) => {
       });
     }
 
-    // Try to disconnect first if active (don't fail if this errors)
-    if (account.connectionState !== 'UNDEPLOYED') {
+    // Try to disconnect from MetaAPI first (only for MetaAPI-linked accounts)
+    if (account.source !== 'ea' && account.connectionState !== 'UNDEPLOYED') {
       try {
         await metaApiService.disconnectAccount(accountId);
       } catch (disconnectError) {

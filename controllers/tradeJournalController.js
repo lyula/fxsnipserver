@@ -417,7 +417,7 @@ exports.createManualTrade = async (req, res) => {
       stopLoss,
       takeProfit,
       status: closeTime ? 'closed' : 'open',
-      outcome: profit > 0 ? 'win' : profit < 0 ? 'loss' : 'breakeven',
+      outcome: profit > 0 ? 'profit' : profit < 0 ? 'loss' : 'breakeven',
       userNotes: userNotes || {},
       session,
       syncedFromMetaAPI: false,
@@ -460,6 +460,12 @@ exports.deleteTrade = async (req, res) => {
       return res.status(403).json({
         success: false,
         message: 'Cannot delete trades synced from MetaAPI',
+      });
+    }
+    if (trade.syncedFromEA) {
+      return res.status(403).json({
+        success: false,
+        message: 'Cannot delete trades synced from EA',
       });
     }
 

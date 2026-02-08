@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require("path");
 const cors = require("cors");
 const http = require("http");
 const app = express();
@@ -56,6 +57,7 @@ app.use(cors({
     'Origin', 
     'X-Requested-With', 
     'Accept',
+    'X-API-Key',
     'Cache-Control',
     'Pragma',
     'If-None-Match',
@@ -84,6 +86,9 @@ app.use("/api/admin/ads", adminAdRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/trading-account", require("./routes/tradingAccount"));
 app.use("/api/trade-journal", require("./routes/tradeJournal"));
+app.use("/api/ea", require("./routes/ea"));
+// Serve EA download files from server/ea/ (same deployment as API)
+app.use("/ea", express.static(path.join(__dirname, "ea")));
 app.use("/api/user-preferences", require("./routes/userPreferences"));
 app.use("/api/report-reasons", require("./routes/reportReason"));
 app.use("/api/post-reports", require("./routes/postReport"));
