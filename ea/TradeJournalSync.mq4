@@ -13,7 +13,7 @@
 input string InpApiKey     = "";           // API key (from journal app)
 input string InpBaseUrl    = "https://fxsnipserver-7uw7.onrender.com"; // Base URL (no trailing slash)
 input int    InpSyncSeconds= 60;           // Sync interval (seconds)
-input int    InpHistoryDays= 7;           // Send closed trades from last N days
+input int    InpHistoryDays= 180;          // Send closed trades from last N days (default 6 months)
 
 string g_lastError = "";
 datetime g_lastSync = 0;
