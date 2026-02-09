@@ -443,6 +443,12 @@ exports.deleteAccount = async (req, res) => {
     const TradeJournal = require('../models/TradeJournal');
     await TradeJournal.deleteMany({ accountId });
 
+    // Delete EA API key if this is an EA-linked account
+    if (account.source === 'ea') {
+      const EAApiKey = require('../models/EAApiKey');
+      await EAApiKey.deleteOne({ accountId });
+    }
+
     // Remove from user preferences if set as primary
     const UserPreferences = require('../models/UserPreferences');
     await UserPreferences.updateMany(
